@@ -6,6 +6,7 @@ module Main where
 import           Options.Applicative           as OA
 import           Data.Semigroup                 ( (<>) )
 import           Data.Version                   ( showVersion )
+import           Data.Char                      ( isSpace )
 import           System.Directory              as SD
 import           System.IO                      ( hFlush
                                                 , stdout
@@ -13,11 +14,16 @@ import           System.IO                      ( hFlush
                                                 , stderr
                                                 , hPrint
                                                 )
-import           FileSystem                     ( Dir(..) )
+import           FileSystem                     ( Dir(..)
+                                                , readDirFromFilesystem
+                                                , writeDirToFilesystem
+                                                , isDirTracked
+                                                )
 import           Control.Monad.State.Lazy
 import           Control.Monad.Except           ( ExceptT
                                                 , runExceptT
                                                 )
+import System.FilePath.Posix
 import           Paths_trash                    ( version )
 
 data CliOptions = CliOptions
@@ -40,7 +46,7 @@ cliOptionsInfo = info
   <> header "trash - the tracker shell"
   )
 
-data ShellCommand = EmptyCommand -- TODO: is it handled by optparse?
+data ShellCommand = EmptyCommand
                   | HelpCommand
                   | ExitCommand
                   | CdCommand FilePath
@@ -60,6 +66,9 @@ data TrackerSubcommand = InitCommand
                        | ForgetCommand FilePath
                        | CheckoutCommand FilePath Integer
                        | MergeCommand FilePath Integer Integer deriving (Eq, Show)
+-- TODO: add strategy : String to MergeCommand
+-- TODO: cvs-cat <file> "index" -- просмотр конкретной ревизии файла
+-- TODO: cvs-delete-version <file> "index" -- удалить заданную версию файла из ревизий
 
 newtype ParsedCommand = ParsedCommand { pGetCommand :: ShellCommand }
 
@@ -156,9 +165,8 @@ shellCommandParser = hsubparser
 shellCommandInfo :: ParserInfo ShellCommand
 shellCommandInfo = info
   (helper <*> shellCommandParser)
-  (  fullDesc
-  <> progDesc "Available shell commands"
-  <> header "trash - the tracker shell"
+  (fullDesc <> progDesc "Available shell commands" <> header
+    "trash - the tracker shell"
   )
 
 trackerSubcommandParser :: Parser TrackerSubcommand
@@ -229,17 +237,19 @@ trackerSubcommandParser = hsubparser
   )
 
 parseResultAsEither :: ParserResult a -> Either String a
-parseResultAsEither (Success a) = Right a
+parseResultAsEither (Success a      ) = Right a
 parseResultAsEither (Failure failure) = do
-      let (msg, _) = renderFailure failure "tracker"
-      Left msg
+  let (msg, _) = renderFailure failure "tracker"
+  Left msg
 parseResultAsEither (CompletionInvoked _) = do
-      Left "unreachable"
+  Left "unreachable"
 
 parseCommand :: String -> Either String ShellCommand
-parseCommand s = parseResultAsEither result where
-  tokens = words s
-  result = execParserPure defaultPrefs shellCommandInfo tokens
+parseCommand s = case filter (not . isSpace) s of
+  "" -> Right EmptyCommand
+  _  -> parseResultAsEither result   where
+    tokens = words s
+    result = execParserPure defaultPrefs shellCommandInfo tokens
 
 
 runGUI :: IO ()
@@ -247,47 +257,54 @@ runGUI = putStrLn "Unimplemented"
 
 runREPL :: IO ()
 runREPL = do
+  initialPwd <- getCurrentDirectory
+  printPrompt initialPwd
+  initialDir <- readDirFromFilesystem initialPwd
+  let initialTrackerDir = if isDirTracked initialDir then Just "." else Nothing
   stdinContents <- getContents
-  let initialState = ShellState (Dir {}) "" Nothing
+  let initialState = ShellState initialDir initialPwd initialTrackerDir
   printPrompt $ sGetPwd initialState
   let commands = lines stdinContents
-  execNextCommand commands initialState
+  finalState <- execNextCommand commands initialState
+  writeDirToFilesystem $ sGetRootDir finalState
 
-execNextCommand :: [String] -> ShellState -> IO ()
-execNextCommand [] _ = return ()
-execNextCommand (cmd:cmds) st = do
+execNextCommand :: [String] -> ShellState -> IO ShellState
+execNextCommand []           st  = return st
+execNextCommand (cmd : cmds) st = do
   case parseCommand cmd of
     Left msg -> do
       hPutStrLn stderr msg
       execNextCommand cmds st
     Right c -> case c of
-        ExitCommand -> return ()
-        _ -> do
-          let (res, newSt) = runState (runExceptT (execCommand c)) st
-          case res of
-            Left e -> hPrint stderr e
-            Right s -> putStrLn s
-          execNextCommand cmds newSt
-          where execCommand EmptyCommand = emptyCmd
-                execCommand ExitCommand = undefined
-                execCommand HelpCommand = helpCmd
-                execCommand (LsCommand path) = lsCmd path
-                execCommand (CdCommand path) = cdCmd path
-                execCommand (TouchCommand path) = touchCmd path
-                execCommand (MkdirCommand path) = mkdirCmd path
-                execCommand (CatCommand path) = catCmd path
-                execCommand (RmCommand path) = rmCmd path
-                execCommand (WriteCommand path text) = writeCmd path text
-                execCommand (FindCommand s) = findCmd s
-                execCommand (StatCommand path) = statCmd path
-                execCommand (TrackerCommand subc) = execTrackerSubcommand subc
+      ExitCommand -> return st
+      _           -> do
+        let (res, newSt) = runState (runExceptT (execCommand c)) st
+        case res of
+          Left  e -> hPrint stderr e
+          Right s -> putStrLn s
+        execNextCommand cmds newSt
+       where
+        execCommand EmptyCommand             = undefined
+        execCommand ExitCommand              = undefined
+        execCommand HelpCommand              = helpCmd
+        execCommand (LsCommand    path     ) = lsCmd path
+        execCommand (CdCommand    path     ) = cdCmd path
+        execCommand (TouchCommand path     ) = touchCmd path
+        execCommand (MkdirCommand path     ) = mkdirCmd path
+        execCommand (CatCommand   path     ) = catCmd path
+        execCommand (RmCommand    path     ) = rmCmd path
+        execCommand (WriteCommand path text) = writeCmd path text
+        execCommand (FindCommand    s      ) = findCmd s
+        execCommand (StatCommand    path   ) = statCmd path
+        execCommand (TrackerCommand subc   ) = execTrackerSubcommand subc
 
-                execTrackerSubcommand InitCommand = initCmd
-                execTrackerSubcommand (AddCommand path) = addCmd path
-                execTrackerSubcommand (LogCommand path) = logCmd path
-                execTrackerSubcommand (ForgetCommand path) = forgetCmd path
-                execTrackerSubcommand (CheckoutCommand path rev) = checkoutCmd path rev
-                execTrackerSubcommand (MergeCommand path rev1 rev2) = mergeCmd path rev1 rev2
+        execTrackerSubcommand InitCommand                = initCmd
+        execTrackerSubcommand (AddCommand    path      ) = addCmd path
+        execTrackerSubcommand (LogCommand    path      ) = logCmd path
+        execTrackerSubcommand (ForgetCommand path      ) = forgetCmd path
+        execTrackerSubcommand (CheckoutCommand path rev) = checkoutCmd path rev
+        execTrackerSubcommand (MergeCommand path rev1 rev2) =
+          mergeCmd path rev1 rev2
 
 printPrompt :: FilePath -> IO ()
 printPrompt pwd = do
@@ -302,62 +319,78 @@ data ShellState = ShellState {
 
 data CommandException = UnknownException deriving (Eq, Show)
 
-emptyCmd :: ExceptT CommandException (State ShellState) String
-emptyCmd = undefined
+-- emptyCmd :: ExceptT CommandException (State ShellState) String
+-- emptyCmd = return ""
 
 helpCmd :: ExceptT CommandException (State ShellState) String
-helpCmd = undefined
+helpCmd = return "TODO: help text"
 
 lsCmd :: FilePath -> ExceptT CommandException (State ShellState) String
-lsCmd path = undefined
+lsCmd path = undefined -- use getDirentryByPath, then process error message (wrap) or check type or list map keys
+-- do not forget to combine given path with existing relative path
 
 cdCmd :: FilePath -> ExceptT CommandException (State ShellState) String
-cdCmd path = undefined
+cdCmd path = undefined -- check subdir exists (use getDirentryByPath), modify relative path
 
 touchCmd :: FilePath -> ExceptT CommandException (State ShellState) String
-touchCmd path = undefined
+touchCmd path = writeCmd path ""
 
 mkdirCmd :: FilePath -> ExceptT CommandException (State ShellState) String
-mkdirCmd path = undefined
+mkdirCmd path = undefined -- same as "touch", just different direntry type
 
 catCmd :: FilePath -> ExceptT CommandException (State ShellState) String
-catCmd path = undefined
+catCmd path = undefined -- get if exists, dump contents to res string
 
 rmCmd :: FilePath -> ExceptT CommandException (State ShellState) String
-rmCmd path = undefined
+rmCmd path = undefined -- same as touch/mkdir, but with reversed check
+-- TODO: how to handle removal of tracked files? Forget? Or think of a way to handle as a revision?
+-- Special mark?
 
-writeCmd :: FilePath -> String -> ExceptT CommandException (State ShellState) String
+-- if dirent does not exist AND we know it's a valid filename (how?), create the file
+writeCmd
+  :: FilePath -> String -> ExceptT CommandException (State ShellState) String
 writeCmd path text = undefined
 
 findCmd :: String -> ExceptT CommandException (State ShellState) String
-findCmd s = undefined
+findCmd s = undefined -- get location referenced by current rel path, then recursively check filenames (helper?)
 
 statCmd :: FilePath -> ExceptT CommandException (State ShellState) String
-statCmd path = undefined
+statCmd path = undefined -- get location, then print fields according to DirEntry type; consider Maybes
 
 initCmd :: ExceptT CommandException (State ShellState) String
-initCmd = undefined
+initCmd = undefined -- verify TrackerData is None; create it with 0 and Map.empty
 
 addCmd :: FilePath -> ExceptT CommandException (State ShellState) String
-addCmd path = undefined
+addCmd path = undefined -- verify TrackerData is Just; verify dirent exists; be recursive with dirs; copy file
+-- contents to revisions, incrementing rev counter
 
 logCmd :: FilePath -> ExceptT CommandException (State ShellState) String
-logCmd path = undefined
+logCmd path = undefined -- get all revisions of file / recurively in existing dir and vcs
+-- sort them, print them
 
 forgetCmd :: FilePath -> ExceptT CommandException (State ShellState) String
-forgetCmd path = undefined
+forgetCmd path = undefined -- check that the path is checked in, in which case delete map key
 
-checkoutCmd :: FilePath -> Integer -> ExceptT CommandException (State ShellState) String
-checkoutCmd path rev = undefined
+checkoutCmd
+  :: FilePath -> Integer -> ExceptT CommandException (State ShellState) String
+checkoutCmd path rev = undefined -- oof, this one is hard... check that the path is tracked
+-- if we choose to forget files we delete, then existing revision means existing file/dir; replace contents
+-- [recursively]
+-- otherwise, need to code creating of missing dirents
 
-mergeCmd :: FilePath -> Integer -> Integer -> ExceptT CommandException (State ShellState) String
-mergeCmd path rev1 rev2 = undefined
+mergeCmd
+  :: FilePath
+  -> Integer
+  -> Integer
+  -> ExceptT CommandException (State ShellState) String
+mergeCmd path rev1 rev2 = undefined -- in fact, is only different from checkoutCmd due to existing comparison
+-- maybe checkoutCmd can be expressed through mergeCmd with a special case for equal revision nums
+-- sounds good to me!
 
 main :: IO ()
 main = do
   cliOptions <- execParser cliOptionsInfo
-  initialPwd <- getCurrentDirectory
 
   case cliOptions of
     CliOptions True -> runGUI
-    _               -> printPrompt initialPwd >> runREPL
+    _               -> runREPL
