@@ -28,8 +28,11 @@ executable trash
   build-depends:       base >=4.9 && < 5
                      , mtl
                      , time
+                     , bytestring
                      , containers
                      , optparse-applicative
                      , directory
                      , filepath
+                     , text
+                     , mime-types
   default-language:    Haskell2010
