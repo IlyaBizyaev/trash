@@ -19,12 +19,17 @@ tested-with:         GHC == 8.6.5
 executable trash
   hs-source-dirs:      src
   main-is:             Main.hs
-  other-modules:       FileManager.Lib
-                     , Tracker.Lib
+  other-modules:       Shell
+                     , ShellData
+                     , Gui
+                     , Parsers
+                     , CommandHelpers
+                     , FileManager
+                     , Tracker
                      , FileSystem
                      , Paths_trash
   -- other-extensions:
-  ghc-options:         -Wall -Werror
+  ghc-options:         -Wall
   build-depends:       base >=4.9 && < 5
                      , mtl
                      , time
