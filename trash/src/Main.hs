@@ -32,6 +32,7 @@ import           FileSystem                     ( Dir(..)
                                                 , getChildCount
                                                 , getFileMimeTypeByName
                                                 , showOptionalTime
+                                                , emptyTrackerData
                                                 )
 import           Control.Monad.State.Lazy
 import           Control.Monad.Except           ( ExceptT
@@ -81,11 +82,9 @@ data TrackerSubcommand = InitCommand
                        | AddCommand FilePath
                        | LogCommand FilePath
                        | ForgetCommand FilePath
+                       | ForgetRevCommand FilePath Integer
                        | CheckoutCommand FilePath Integer
-                       | MergeCommand FilePath Integer Integer deriving (Eq, Show)
--- TODO: add strategy : String to MergeCommand
--- TODO: cvs-cat <file> "index" -- просмотр конкретной ревизии файла
--- TODO: cvs-delete-version <file> "index" -- удалить заданную версию файла из ревизий
+                       | MergeCommand FilePath Integer Integer String deriving (Eq, Show)
 
 newtype ParsedCommand = ParsedCommand { pGetCommand :: ShellCommand }
 
@@ -227,6 +226,20 @@ trackerSubcommandParser = hsubparser
          )
        )
   <> command
+       "forget-rev"
+       (info
+         (ForgetRevCommand <$> strArgument
+           (  metavar "FILE"
+           <> help "Name of file or directory to delete a revision of"
+           )
+           <*> argument
+               auto
+               (metavar "REV" <> help "Revision number to delete")
+         )
+         (progDesc "Delete specific revision of a tracked file"
+         )
+       )
+  <> command
        "checkout"
        (info
          (   CheckoutCommand
@@ -248,6 +261,7 @@ trackerSubcommandParser = hsubparser
          <$> strArgument (metavar "FILE" <> help "Name of file to merge")
          <*> argument auto (metavar "REV" <> help "First revision number")
          <*> argument auto (metavar "REV" <> help "Second revision number")
+         <*> strArgument (metavar "STRATEGY" <> help "Merge strategy: left, right or both")
          )
          (progDesc "Initiate merging of 2 file revisions")
        )
@@ -319,9 +333,10 @@ execNextCommand (cmd : cmds) st = do
         execTrackerSubcommand (AddCommand    path      ) = addCmd path
         execTrackerSubcommand (LogCommand    path      ) = logCmd path
         execTrackerSubcommand (ForgetCommand path      ) = forgetCmd path
+        execTrackerSubcommand (ForgetRevCommand path rev) = forgetRevCmd path rev
         execTrackerSubcommand (CheckoutCommand path rev) = checkoutCmd path rev
-        execTrackerSubcommand (MergeCommand path rev1 rev2) =
-          mergeCmd path rev1 rev2
+        execTrackerSubcommand (MergeCommand path rev1 rev2 strategy) =
+          mergeCmd path rev1 rev2 strategy
 
 printPrompt :: FilePath -> IO ()
 printPrompt pwd = do
@@ -400,9 +415,6 @@ updatePwd path st = st { sGetPwd = newPwd, sGetTrackerDir = newTrackerDir } wher
     Nothing          -> False
     Just (Left  _  ) -> False
     Just (Right dir) -> isDirTracked dir
-
--- emptyCmd :: ExceptT CommandException (State ShellState) String
--- emptyCmd = return ""
 
 helpCmd :: ExceptT CommandException (State ShellState) String
 helpCmd = return
@@ -493,34 +505,89 @@ statCmd path = do
       fileCntLine = "Files: " ++ show (getChildCount dir)
 
 initCmd :: ExceptT CommandException (State ShellState) String
-initCmd = undefined -- verify TrackerData is None; create it with 0 and Map.empty
+initCmd = do
+  dirent <- getDirentryByPath "."
+  case dirent of
+    Left _ -> throwError UnknownException
+    Right dir -> if isDirTracked dir then throwError UnknownException else do
+      return ""
+-- learn to put emptyTrackerData deep into the structure, and how to generalize it for other funcs...
+-- at least the action of VCS replacement
 
 addCmd :: FilePath -> ExceptT CommandException (State ShellState) String
-addCmd path = undefined -- verify TrackerData is Just; verify dirent exists; be recursive with dirs; copy file
--- contents to revisions, incrementing rev counter
+addCmd path = undefined
+-- ensure vcs dir is not Nothing
+-- get full path of the target path
+-- verify full path is a child/eq of tracker path
+-- get that path relative to tracker path
+-- get dirent for path (normalized relative? or works with absolute?)
+-- for file: get contents
+-- for dir: get all files in that dir, get their contents
+-- build map vscRelPath -> currentContent for all files affected
+-- function on vcs dir: add new revisions for affected files (external f, increments rev cnt)
+-- TODO: later, also check if anything has been modified before doing that
+
 
 logCmd :: FilePath -> ExceptT CommandException (State ShellState) String
-logCmd path = undefined -- get all revisions of file / recurively in existing dir and vcs
--- sort them, print them
+logCmd path = undefined
+-- ensure vcs dir is not Nothing
+-- get full path of the target path
+-- verify full path is a child/eq of tracker path
+-- get that path relative to tracker path
+-- get dirent for path (normalized relative? or works with absolute?)
+-- get vcs dir
+-- get tracker data
+-- for file dirent: query the rel path in tracker data
+-- for dir dirent: get all paths of children recursively (generalize query f), query all their revisions
+-- sort revisions, merge files with same rev number (result of dir add)
+-- pretty-print
 
 forgetCmd :: FilePath -> ExceptT CommandException (State ShellState) String
-forgetCmd path = undefined -- check that the path is checked in, in which case delete map key
+forgetCmd path = undefined
+-- function on state's tracker dir data:
+-- * if no tracker dir, fail with error
+-- * if have tracker dir but not file's revision log in it, fail with error
+-- * otherwise delete file's key from tracker dir data
+-- along the way, need file path relative to tracker dir (child/eq, or fail)
+
+forgetRevCmd :: FilePath -> Integer -> ExceptT CommandException (State ShellState) String
+forgetRevCmd path rev = undefined
+-- function on state's tracker dir data:
+-- * if no tracker dir, fail with error
+-- * if have tracker dir but not file's revision log in it, fail with error
+-- * if have file revision log but not this rev in it, fail with error
+-- * otherwise delete file's key from tracker dir data
+-- along the way, need file path relative to tracker dir (child/eq, or fail)
 
 checkoutCmd
   :: FilePath -> Integer -> ExceptT CommandException (State ShellState) String
-checkoutCmd path rev = undefined -- oof, this one is hard... check that the path is tracked
--- if we choose to forget files we delete, then existing revision means existing file/dir; replace contents
--- [recursively]
--- otherwise, need to code creating of missing dirents
+checkoutCmd path rev = undefined
+-- ensure vcs dir is not Nothing
+-- get full path of the target path
+-- verify full path is a child/eq of tracker path
+-- get that path relative to tracker path
+-- get dirent for path (normalized relative? or works with absolute?)
+-- get vcs dir
+-- get tracker data
+-- for file dirent: query specified rev, display contents/fail
+-- for dir dirent: display error message
 
 mergeCmd
   :: FilePath
   -> Integer
   -> Integer
+  -> String
   -> ExceptT CommandException (State ShellState) String
-mergeCmd path rev1 rev2 = undefined -- in fact, is only different from checkoutCmd due to existing comparison
--- maybe checkoutCmd can be expressed through mergeCmd with a special case for equal revision nums
--- sounds good to me!
+mergeCmd path rev1 rev2 strategy = undefined
+-- ensure vcs dir is not Nothing
+-- get full path of the target path
+-- verify full path is a child/eq of tracker path
+-- get that path relative to tracker path
+-- get dirent for path (normalized relative? or works with absolute?)
+-- get vcs dir
+-- get tracker data
+-- for file dirent: query specified revs, fail if one is not present, choose one based on strategy, write to file
+-- for dir dirent: display error message
 
 main :: IO ()
 main = do

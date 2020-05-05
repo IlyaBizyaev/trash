@@ -21,6 +21,7 @@ module FileSystem
   , getChildCount
   , getFileMimeTypeByName
   , showOptionalTime
+  , emptyTrackerData
   )
 where
 
@@ -57,7 +58,6 @@ data TrackerData = TrackerData {
   tGetRevisions :: Map.Map String (Map.Map Integer FileRevision)
 }
 
--- TODO: delete file count?
 data Dir = Dir {
   dGetTrackerData :: Maybe TrackerData,
   dGetPermissions :: Permissions,
@@ -71,6 +71,10 @@ emptyDir = Dir { dGetTrackerData = Nothing
                , dGetSize        = 0
                , dGetChildren    = Map.empty
                }
+
+emptyTrackerData :: TrackerData
+emptyTrackerData =
+  TrackerData { tGetLastVersion = 0, tGetRevisions = Map.empty }
 
 type DirEntry = Either File Dir
 
@@ -106,7 +110,7 @@ rmDirEntry = undefined
 -- and even worse, both of these can fail, so should mb return Maybe
 
 getDirentryByFullPath :: Dir -> FilePath -> Maybe DirEntry
-getDirentryByFullPath = undefined
+getDirentryByFullPath dir path = undefined
 
 readDirFromFilesystem :: FilePath -> IO Dir
 readDirFromFilesystem path = undefined
@@ -142,3 +146,27 @@ showOptionalTime :: Maybe UTCTime -> String
 showOptionalTime mbTime = case mbTime of
   Just t -> show t
   _      -> "-"
+
+-- the complication here is splitting the path, while considering that head can be '/'
+-- maybe we can call getDirentryByFullPath, which should be smart enough to implement this concept?
+modifyDirEntryAtPath :: Dir -> FilePath -> (DirEntry -> DirEntry) -> Maybe Dir
+modifyDirEntryAtPath dir path f = undefined
+
+modifyTrackerDataAtPath
+  :: Dir -> FilePath -> (TrackerData -> TrackerData) -> Maybe Dir
+modifyTrackerDataAtPath dir path f = modifyDirEntryAtPath dir path newF where
+  newF de = undefined -- case de of; TODO: how to distinguish files and dirs here? keep files as is, change dirs?
+  -- or have f :: DirEntry -> Maybe DirEntry and fail with Nothing?
+
+replaceDirEntryAtPath :: Dir -> FilePath -> DirEntry -> Maybe Dir
+replaceDirEntryAtPath dir path newDirent =
+  modifyDirEntryAtPath dir path (\_ -> newDirent)
+
+replaceTrackerDataAtPath :: Dir -> FilePath -> TrackerData -> Maybe Dir
+replaceTrackerDataAtPath dir path newTrackerData =
+  modifyTrackerDataAtPath dir path (\_ -> newTrackerData)
+
+-- now, consider also File -> File and Dir -> Dir; consider if they worked for
+-- <nothing> -> de and de -> <nothing> cases; doesn't that describe most of your shell code?!
+-- now note how DirEnt -> DirEnt should also be recalculating file and dir sizes
+-- and now consider f :: Maybe <f/d/de> ->; would that help?
