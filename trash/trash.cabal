@@ -23,10 +23,12 @@ executable trash
                      , ShellData
                      , Gui
                      , Parsers
+                     , PathUtils
                      , CommandHelpers
                      , FileManager
                      , Tracker
                      , FileSystem
+                     , RealIO
                      , Paths_trash
   -- other-extensions:
   ghc-options:         -Wall

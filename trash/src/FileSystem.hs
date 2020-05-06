@@ -7,14 +7,12 @@ module FileSystem
   , TrackerData(..)
   , DirEntry
   , Dir(..)
-  , readDirFromFilesystem
-  , writeDirToFilesystem
   , isDirTracked
   , listDirEntries
-  , getDirentryByFullPath
+  , getDirEntryByFullPath
   , buildFileWithContent
-  , addDirEntry
-  , rmDirEntry
+  , addDirEntryAtPath
+  , rmDirEntryAtPath
   , emptyDir
   , isFileTrackedInDir
   , findDirentsBySubstring
@@ -38,7 +36,6 @@ import           Data.List                      ( isInfixOf )
 import qualified Data.Text                     as TS
 
 data FileRevision = FileRevision {
-  frGetVersion :: Int,
   frGetName :: String,
   frGetTimestamp :: UTCTime,
   frGetContent :: B.ByteString
@@ -57,6 +54,12 @@ data TrackerData = TrackerData {
   tGetLastVersion :: Integer,
   tGetRevisions :: Map.Map String (Map.Map Integer FileRevision)
 }
+
+addRevisionsToTrackerData :: TrackerData -> [(FilePath, FileRevision)] -> TrackerData
+addRevisionsToTrackerData trackerData toAdd = undefined where
+  prevLast = tGetLastVersion trackerData
+  newLast = prevLast + 1
+  -- addOneRev tdRevs (path, rev) Map.insert path a Map k a -- double map is hard...((
 
 data Dir = Dir {
   dGetTrackerData :: Maybe TrackerData,
@@ -100,23 +103,17 @@ isDirTracked dir = case dGetTrackerData dir of
 listDirEntries :: Dir -> [FilePath]
 listDirEntries dir = Map.keys (dGetChildren dir)
 
-addDirEntry :: Dir -> DirEntry -> FilePath -> Dir
-addDirEntry = undefined
+addDirEntryAtPath :: Dir -> DirEntry -> FilePath -> Dir
+addDirEntryAtPath = undefined
 -- terrible note: this has to update sizes of all parent dirs
 
-rmDirEntry :: Dir -> FilePath -> Dir
-rmDirEntry = undefined
+rmDirEntryAtPath :: Dir -> FilePath -> Dir
+rmDirEntryAtPath = undefined
 -- and this, too
 -- and even worse, both of these can fail, so should mb return Maybe
 
-getDirentryByFullPath :: Dir -> FilePath -> Maybe DirEntry
-getDirentryByFullPath dir path = undefined
-
-readDirFromFilesystem :: FilePath -> IO Dir
-readDirFromFilesystem path = undefined
-
-writeDirToFilesystem :: Dir -> IO ()
-writeDirToFilesystem dir = undefined
+getDirEntryByFullPath :: Dir -> FilePath -> Maybe DirEntry
+getDirEntryByFullPath dir path = undefined -- use fullNormalize
 
 isFileTrackedInDir :: Dir -> FilePath -> Bool
 isFileTrackedInDir = undefined
@@ -147,26 +144,3 @@ showOptionalTime mbTime = case mbTime of
   Just t -> show t
   _      -> "-"
 
--- the complication here is splitting the path, while considering that head can be '/'
--- maybe we can call getDirentryByFullPath, which should be smart enough to implement this concept?
-modifyDirEntryAtPath :: Dir -> FilePath -> (DirEntry -> DirEntry) -> Maybe Dir
-modifyDirEntryAtPath dir path f = undefined
-
-modifyTrackerDataAtPath
-  :: Dir -> FilePath -> (TrackerData -> TrackerData) -> Maybe Dir
-modifyTrackerDataAtPath dir path f = modifyDirEntryAtPath dir path newF where
-  newF de = undefined -- case de of; TODO: how to distinguish files and dirs here? keep files as is, change dirs?
-  -- or have f :: DirEntry -> Maybe DirEntry and fail with Nothing?
-
-replaceDirEntryAtPath :: Dir -> FilePath -> DirEntry -> Maybe Dir
-replaceDirEntryAtPath dir path newDirent =
-  modifyDirEntryAtPath dir path (\_ -> newDirent)
-
-replaceTrackerDataAtPath :: Dir -> FilePath -> TrackerData -> Maybe Dir
-replaceTrackerDataAtPath dir path newTrackerData =
-  modifyTrackerDataAtPath dir path (\_ -> newTrackerData)
-
--- now, consider also File -> File and Dir -> Dir; consider if they worked for
--- <nothing> -> de and de -> <nothing> cases; doesn't that describe most of your shell code?!
--- now note how DirEnt -> DirEnt should also be recalculating file and dir sizes
--- and now consider f :: Maybe <f/d/de> ->; would that help?

@@ -7,6 +7,7 @@ import           Options.Applicative
 import           Data.Semigroup                 ( (<>) )
 import           Data.Char                      ( isSpace )
 import           Data.Version                   ( showVersion )
+-- TODO: doesn't seem to work
 import           Paths_trash                    ( version )
 import ShellData (ShellCommand(..), TrackerSubcommand(..))
 

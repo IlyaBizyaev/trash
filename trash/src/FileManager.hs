@@ -1,3 +1,6 @@
+-- SPDX-FileCopyrightText: 2020 Ilya Bizyaev <me@ilyabiz.com>
+-- SPDX-License-Identifier: GPL-3.0+
+
 module FileManager
   ( lsCmd
   , touchCmd
@@ -32,8 +35,8 @@ import           System.FilePath.Posix
 import           Data.List                      ( intercalate )
 import           CommandHelpers                 ( getDirentryByPath
                                                 , isPathAbsent
-                                                , addDirEntryToState
-                                                , rmDirEntryFromState
+                                                , addDirEntry
+                                                , rmDirEntry
                                                 , isFileTracked
                                                 , forgetDirEntry
                                                 )
@@ -57,7 +60,7 @@ mkdirCmd path = do
   isAbsent <- isPathAbsent normalizedPath
   unless isAbsent (throwError UnknownException)
   let direntToWrite = Right emptyDir
-  addDirEntryToState direntToWrite path
+  addDirEntry direntToWrite path
   return ""
 
 catCmd :: FilePath -> ExceptT CommandException (State ShellState) String
@@ -73,7 +76,7 @@ rmCmd path = do
   unless (isValid normalizedPath) (throwError UnknownException)
   isAbsent <- isPathAbsent normalizedPath
   when isAbsent (throwError UnknownException)
-  rmDirEntryFromState path
+  rmDirEntry path
   fileTracked <- isFileTracked path
   when fileTracked (forgetDirEntry path)
   return ""
@@ -86,7 +89,7 @@ writeCmd path text = do
   isAbsent <- isPathAbsent normalizedPath
   unless isAbsent (throwError UnknownException)
   let direntToWrite = Left $ buildFileWithContent text
-  addDirEntryToState direntToWrite path
+  addDirEntry direntToWrite path
   return ""
 
 findCmd :: String -> ExceptT CommandException (State ShellState) String
@@ -99,7 +102,7 @@ findCmd s = do
 statCmd :: FilePath -> ExceptT CommandException (State ShellState) String
 statCmd path = do
   let normalizedPath = normalise path -- Not enough, need to solve .. etc.
-  let fullPath       = normalizedPath -- TODO: need to use </>, but what if the passed path is already absolute?
+  let fullPath       = normalizedPath -- TODO: need to use </>, but what if passed path is already absolute?
   -- need to fix this everywhere
   let pathLine       = "Path: " ++ fullPath
   dirent <- getDirentryByPath normalizedPath

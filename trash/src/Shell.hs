@@ -7,9 +7,10 @@ module Shell
   , runREPL
   )
 where
-import           FileSystem                     ( getDirentryByFullPath
+import           FileSystem                     ( getDirEntryByFullPath
                                                 , isDirTracked
-                                                , readDirFromFilesystem
+                                                )
+import           RealIO                         ( readDirFromFilesystem
                                                 , writeDirToFilesystem
                                                 )
 import           Control.Monad.Except           ( ExceptT
@@ -30,7 +31,9 @@ import           ShellData                      ( ShellState(..)
                                                 , ShellCommand(..)
                                                 , TrackerSubcommand(..)
                                                 )
-import           CommandHelpers                 ( getDirentryByPath )
+import           CommandHelpers                 ( makePathAbsolute
+                                                , getDirentryByPath
+                                                )
 import           FileManager                    ( lsCmd
                                                 , touchCmd
                                                 , mkdirCmd
@@ -122,7 +125,7 @@ updatePwd path st = st { sGetPwd = newPwd, sGetTrackerDir = newTrackerDir } wher
     curPath        = (joinPath . reverse) x
     curPathTracked = isSubdirAtPathTracked curPath
     ancestorCheck  = findClosestTrackedAncestor xs
-  isSubdirAtPathTracked p = case getDirentryByFullPath rootDir p of -- TODO: suspicious direct call
+  isSubdirAtPathTracked p = case getDirEntryByFullPath rootDir p of -- TODO: suspicious direct call
     Nothing          -> False
     Just (Left  _  ) -> False
     Just (Right dir) -> isDirTracked dir
@@ -133,9 +136,10 @@ helpCmd = return
 
 cdCmd :: FilePath -> ExceptT CommandException (State ShellState) String
 cdCmd path = do
-  dirent <- getDirentryByPath path
+  fullPath <- makePathAbsolute path
+  dirent   <- getDirentryByPath path
   case dirent of
     Left  _ -> throwError UnknownException
     Right _ -> do
-      modify (updatePwd path)
+      modify (updatePwd fullPath)
       return ""
