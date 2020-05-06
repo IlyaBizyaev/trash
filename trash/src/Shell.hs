@@ -78,8 +78,12 @@ execNextCommand (cmd : cmds) st = do
       _           -> do
         let (res, newSt) = runState (runExceptT (execCommand c)) st
         case res of
-          Left  e -> hPrint stderr e
-          Right s -> putStrLn s
+          Left  e -> do
+            hPrint stderr e
+            hFlush stderr
+          Right s -> do
+            putStrLn s
+            printPrompt (sGetPwd newSt)
         execNextCommand cmds newSt
        where
         execCommand EmptyCommand             = undefined

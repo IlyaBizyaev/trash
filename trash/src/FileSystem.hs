@@ -20,6 +20,13 @@ module FileSystem
   , getFileMimeTypeByName
   , showOptionalTime
   , emptyTrackerData
+  , calculateSize
+  , getLogFromTrackerData
+  , getRevisionFromTrackerData
+  , listFilesInDirEntry
+  , addRevisionsToTrackerData
+  , removeRevisionFromTrackerData
+  , removeFilesFromTrackerData
   )
 where
 
@@ -55,16 +62,59 @@ data TrackerData = TrackerData {
   tGetRevisions :: Map.Map String (Map.Map Integer FileRevision)
 }
 
-addRevisionsToTrackerData :: TrackerData -> [(FilePath, FileRevision)] -> TrackerData
-addRevisionsToTrackerData trackerData toAdd = undefined where
-  prevLast = tGetLastVersion trackerData
-  newLast = prevLast + 1
-  -- addOneRev tdRevs (path, rev) Map.insert path a Map k a -- double map is hard...((
+addRevisionsToTrackerData
+  :: TrackerData -> [(FilePath, FileRevision)] -> TrackerData
+addRevisionsToTrackerData trackerData toAdd = TrackerData
+  { tGetLastVersion = newLast
+  , tGetRevisions   = newRevisions
+  } where
+  prevLast      = tGetLastVersion trackerData
+  prevRevisions = tGetRevisions trackerData
+  newLast       = prevLast + 1
+  newRevisions  = foldl addOneRev prevRevisions toAdd
+  addOneRev revsMap (path, rev) = case Map.lookup path revsMap of
+    Nothing -> Map.insert path (Map.singleton newLast rev) revsMap
+    Just oldRevsForPath -> Map.insert path newRevsForPath revsMap where
+      newRevsForPath = Map.insert newLast rev oldRevsForPath
+
+
+getRevisionFromTrackerData
+  :: TrackerData -> FilePath -> Integer -> Maybe FileRevision
+getRevisionFromTrackerData td path rev = do
+  numToRevMap <- Map.lookup path (tGetRevisions td)
+  Map.lookup rev numToRevMap
+
+getLogFromTrackerData
+  :: TrackerData -> [FilePath] -> Maybe [(Integer, [FileRevision])]
+getLogFromTrackerData td paths = do
+  numToRevMaps <- mapM (\x -> Map.lookup x (tGetRevisions td)) paths
+  let numToRevListMaps = map (Map.map (\x -> [x])) numToRevMaps
+  let numToRevListMap  = foldl (Map.unionWith (++)) Map.empty numToRevListMaps
+  return $ Map.toAscList numToRevListMap
+
+removeRevisionFromTrackerData :: TrackerData -> FilePath -> Integer -> Maybe TrackerData
+removeRevisionFromTrackerData td path rev = do
+  let oldRevisions = tGetRevisions td
+  oldRevsForPath <- Map.lookup path oldRevisions
+  _ <- Map.lookup rev oldRevsForPath
+  let newRevsForPath = Map.delete rev oldRevsForPath
+  let newRevisions = Map.insert path newRevsForPath oldRevisions
+  return $ td {tGetRevisions = newRevisions}
+
+removeFilesFromTrackerData :: TrackerData -> [FilePath] -> Maybe TrackerData
+removeFilesFromTrackerData trackerData paths = foldl removeFile (Just trackerData) paths where
+  removeFile maybeTd p = do
+    td <- maybeTd
+    let oldRevisions = tGetRevisions td
+    _ <- Map.lookup p oldRevisions
+    let newRevisions = Map.delete p oldRevisions
+    return $ td {tGetRevisions = newRevisions}
+
 
 data Dir = Dir {
   dGetTrackerData :: Maybe TrackerData,
   dGetPermissions :: Permissions,
-  dGetSize :: Integer,
+  dGetSize :: Int,
   dGetChildren :: Map.Map FilePath DirEntry
 }
 
@@ -102,6 +152,12 @@ isDirTracked dir = case dGetTrackerData dir of
 
 listDirEntries :: Dir -> [FilePath]
 listDirEntries dir = Map.keys (dGetChildren dir)
+
+listFilesInDirEntry :: FilePath -> DirEntry -> [FilePath]
+listFilesInDirEntry path (Left  _  ) = [path]
+listFilesInDirEntry path (Right dir) = map (path </>) allFiles where
+  children = Map.toAscList (dGetChildren dir)
+  allFiles = concatMap (uncurry listFilesInDirEntry) children
 
 addDirEntryAtPath :: Dir -> DirEntry -> FilePath -> Dir
 addDirEntryAtPath = undefined
@@ -144,3 +200,11 @@ showOptionalTime mbTime = case mbTime of
   Just t -> show t
   _      -> "-"
 
+calculateSize :: DirEntry -> DirEntry
+calculateSize (Right dir) = Right $ dir { dGetSize = newSize } where
+  children = Map.elems $ dGetChildren dir
+  getSize (Left  f) = fGetSize f
+  getSize (Right d) = dGetSize d
+  childSizes = map getSize children
+  newSize    = sum childSizes
+calculateSize file = file

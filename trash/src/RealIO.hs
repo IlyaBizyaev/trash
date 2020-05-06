@@ -7,6 +7,7 @@ import FileSystem (Dir(..))
 
 -- .tracker subdir
 
+-- use calculateSize
 readDirFromFilesystem :: FilePath -> IO Dir
 readDirFromFilesystem path = undefined
 

@@ -36,6 +36,7 @@ initCmd = do
 
 addCmd :: FilePath -> ExceptT CommandException (State ShellState) String
 addCmd path = undefined
+-- use: addRevisionsToTrackerData
 -- ensure vcs dir is not Nothing
 -- get full path of the target path
 -- verify full path is a child/eq of tracker path
@@ -50,6 +51,7 @@ addCmd path = undefined
 
 logCmd :: FilePath -> ExceptT CommandException (State ShellState) String
 logCmd path = undefined
+-- use: getLogFromTrackerData, listFilesInDirEntry
 -- ensure vcs dir is not Nothing
 -- get full path of the target path
 -- verify full path is a child/eq of tracker path
@@ -75,6 +77,7 @@ forgetCmd path = do
 forgetRevCmd
   :: FilePath -> Integer -> ExceptT CommandException (State ShellState) String
 forgetRevCmd path rev = undefined
+-- use: removeRevisionFromTrackerData
 -- function on state's tracker dir data:
 -- * if no tracker dir, fail with error
 -- * if have tracker dir but not file's revision log in it, fail with error
@@ -85,6 +88,7 @@ forgetRevCmd path rev = undefined
 checkoutCmd
   :: FilePath -> Integer -> ExceptT CommandException (State ShellState) String
 checkoutCmd path rev = undefined
+-- use: getRevisionFromTrackerData
 -- ensure vcs dir is not Nothing
 -- get full path of the target path
 -- verify full path is a child/eq of tracker path
@@ -102,6 +106,7 @@ mergeCmd
   -> String
   -> ExceptT CommandException (State ShellState) String
 mergeCmd path rev1 rev2 strategy = undefined
+-- use: getRevisionFromTrackerData
 -- ensure vcs dir is not Nothing
 -- get full path of the target path
 -- verify full path is a child/eq of tracker path

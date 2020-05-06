@@ -52,6 +52,7 @@ lsCmd path = do
 touchCmd :: FilePath -> ExceptT CommandException (State ShellState) String
 touchCmd path = writeCmd path ""
 
+-- forbid making .tracker dir
 mkdirCmd :: FilePath -> ExceptT CommandException (State ShellState) String
 mkdirCmd path = do
   let normalizedPath = normalise path -- Not enough, need to solve .. etc.
@@ -81,6 +82,7 @@ rmCmd path = do
   when fileTracked (forgetDirEntry path)
   return ""
 
+-- forbid writing .tracker file
 writeCmd
   :: FilePath -> String -> ExceptT CommandException (State ShellState) String
 writeCmd path text = do

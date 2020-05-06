@@ -71,7 +71,7 @@ rmDirEntry path = do
   put newSt
 
 forgetDirEntry :: FilePath -> ExceptT CommandException (State ShellState) ()
-forgetDirEntry = undefined
+forgetDirEntry = undefined -- use removeFilesFromTrackerData, mb listFilesInDirEntry
 
 forgetDirEntryIfTracked
   :: FilePath -> ExceptT CommandException (State ShellState) ()
@@ -85,6 +85,7 @@ type TrackerDataFunction
 
 -- the complication here is splitting the path, while considering that head can be '/'
 -- maybe we can call getDirEntryByFullPath, which should be smart enough to implement this concept?
+-- use calculateSize
 modifyDirEntryAtPath :: Dir -> FilePath -> DirEntryFunction -> Maybe Dir
 modifyDirEntryAtPath dir path f = undefined
 
