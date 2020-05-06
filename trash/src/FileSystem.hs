@@ -36,6 +36,7 @@ import           System.Directory               ( Permissions
 import           Data.Time.Clock                ( UTCTime )
 import qualified Data.Map.Strict               as Map
 import           System.FilePath.Posix
+import           PathUtils                      ( fullNormalize )
 import           Network.Mime
 import qualified Data.ByteString               as B
 import qualified Data.ByteString.Char8         as BC
@@ -73,9 +74,9 @@ addRevisionsToTrackerData trackerData toAdd = TrackerData
   newLast       = prevLast + 1
   newRevisions  = foldl addOneRev prevRevisions toAdd
   addOneRev revsMap (path, rev) = case Map.lookup path revsMap of
-    Nothing -> Map.insert path (Map.singleton newLast rev) revsMap
-    Just oldRevsForPath -> Map.insert path newRevsForPath revsMap where
-      newRevsForPath = Map.insert newLast rev oldRevsForPath
+    Nothing             -> Map.insert path (Map.singleton newLast rev) revsMap
+    Just oldRevsForPath -> Map.insert path newRevsForPath revsMap
+      where newRevsForPath = Map.insert newLast rev oldRevsForPath
 
 
 getRevisionFromTrackerData
@@ -92,23 +93,26 @@ getLogFromTrackerData td paths = do
   let numToRevListMap  = foldl (Map.unionWith (++)) Map.empty numToRevListMaps
   return $ Map.toAscList numToRevListMap
 
-removeRevisionFromTrackerData :: TrackerData -> FilePath -> Integer -> Maybe TrackerData
+removeRevisionFromTrackerData
+  :: TrackerData -> FilePath -> Integer -> Maybe TrackerData
 removeRevisionFromTrackerData td path rev = do
   let oldRevisions = tGetRevisions td
   oldRevsForPath <- Map.lookup path oldRevisions
-  _ <- Map.lookup rev oldRevsForPath
+  _              <- Map.lookup rev oldRevsForPath
   let newRevsForPath = Map.delete rev oldRevsForPath
-  let newRevisions = Map.insert path newRevsForPath oldRevisions
-  return $ td {tGetRevisions = newRevisions}
+  let newRevisions   = Map.insert path newRevsForPath oldRevisions
+  return $ td { tGetRevisions = newRevisions }
 
 removeFilesFromTrackerData :: TrackerData -> [FilePath] -> Maybe TrackerData
-removeFilesFromTrackerData trackerData paths = foldl removeFile (Just trackerData) paths where
+removeFilesFromTrackerData trackerData paths = foldl removeFile
+                                                     (Just trackerData)
+                                                     paths where
   removeFile maybeTd p = do
     td <- maybeTd
     let oldRevisions = tGetRevisions td
     _ <- Map.lookup p oldRevisions
     let newRevisions = Map.delete p oldRevisions
-    return $ td {tGetRevisions = newRevisions}
+    return $ td { tGetRevisions = newRevisions }
 
 
 data Dir = Dir {
@@ -169,7 +173,18 @@ rmDirEntryAtPath = undefined
 -- and even worse, both of these can fail, so should mb return Maybe
 
 getDirEntryByFullPath :: Dir -> FilePath -> Maybe DirEntry
-getDirEntryByFullPath dir path = undefined -- use fullNormalize
+getDirEntryByFullPath rootDir fullPath = getDirEntryByPathComponents
+  rootDir
+  pathComponents where
+  normalizedPath = fullNormalize fullPath
+  -- We omit "/", which is always present in split full paths
+  pathComponents = tail $ splitDirectories normalizedPath
+  getDirEntryByPathComponents dir []       = return $ Right dir
+  getDirEntryByPathComponents dir (c : cs) = do
+    childEntry <- Map.lookup c (dGetChildren dir)
+    case childEntry of
+      Left  f -> if null cs then return (Left f) else Nothing
+      Right d -> getDirEntryByPathComponents d cs
 
 isFileTrackedInDir :: Dir -> FilePath -> Bool
 isFileTrackedInDir = undefined

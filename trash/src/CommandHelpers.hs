@@ -7,6 +7,8 @@ module CommandHelpers
   , isPathAbsent
   , addDirEntry
   , rmDirEntry
+  , getDirEntry
+  , getTrackerData
   , forgetDirEntry
   , forgetDirEntryIfTracked
   )
@@ -69,6 +71,24 @@ rmDirEntry path = do
   let newDir = rmDirEntryAtPath oldDir path
   let newSt  = st { sGetRootDir = newDir }
   put newSt
+
+getDirEntry :: FilePath -> ExceptT CommandException (State ShellState) DirEntry
+getDirEntry path = do
+  fullPath <- makePathAbsolute path
+  st <- lift get
+  let rootDir = sGetRootDir st
+  case getDirEntryByFullPath rootDir fullPath of
+    Nothing -> throwError UnknownException
+    Just de -> return de
+
+getTrackerData :: FilePath -> ExceptT CommandException (State ShellState) TrackerData
+getTrackerData path = do
+  dirent <- getDirEntry path
+  case dirent of
+    Left _ -> throwError UnknownException
+    Right dir -> case dGetTrackerData dir of
+      Nothing -> throwError UnknownException
+      Just td -> return td
 
 forgetDirEntry :: FilePath -> ExceptT CommandException (State ShellState) ()
 forgetDirEntry = undefined -- use removeFilesFromTrackerData, mb listFilesInDirEntry
