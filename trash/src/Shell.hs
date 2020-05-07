@@ -10,7 +10,7 @@ where
 import           FileSystem                     ( getDirEntryByFullPath
                                                 , isDirTracked
                                                 )
-import           RealIO                         ( readDirFromFilesystem
+import           RealIO                         ( readDirEntryFromFilesystem
                                                 , writeDirToFilesystem
                                                 )
 import           Control.Monad.Except           ( ExceptT
@@ -57,14 +57,17 @@ runREPL :: IO ()
 runREPL = do
   initialPwd <- SD.getCurrentDirectory
   printPrompt initialPwd
-  initialDir <- readDirFromFilesystem initialPwd
-  let initialTrackerDir = if isDirTracked initialDir then Just "/" else Nothing
-  stdinContents <- getContents
-  let initialState = ShellState initialDir initialPwd initialTrackerDir
-  printPrompt initialPwd
-  let commands = lines stdinContents
-  finalState <- execNextCommand commands initialState
-  writeDirToFilesystem $ sGetRootDir finalState
+  initialDir <- readDirEntryFromFilesystem initialPwd
+  case initialDir of
+    Left _ -> hPutStrLn stderr "unreachable"
+    Right initD -> do
+      let initialTrackerDir = if isDirTracked initialDir then Just "/" else Nothing
+      stdinContents <- getContents
+      let initialState = ShellState initialDir initialPwd initialTrackerDir
+      printPrompt initialPwd
+      let commands = lines stdinContents
+      finalState <- execNextCommand commands initialState
+      writeDirToFilesystem $ sGetRootDir finalState
 
 execNextCommand :: [String] -> ShellState -> IO ShellState
 execNextCommand []           st = return st

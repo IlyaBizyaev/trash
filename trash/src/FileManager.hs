@@ -37,7 +37,6 @@ import           CommandHelpers                 ( getDirentryByPath
                                                 , isPathAbsent
                                                 , addDirEntry
                                                 , rmDirEntry
-                                                , isFileTracked
                                                 , forgetDirEntry
                                                 )
 
@@ -110,11 +109,10 @@ statCmd path = do
   dirent <- getDirentryByPath normalizedPath
   return $ intercalate "\n" $ case dirent of
     Left file ->
-      [pathLine, permissionsLine, sizeLine, modLine, creationLine, typeLine]     where
+      [pathLine, permissionsLine, sizeLine, modLine, typeLine]     where
       permissionsLine = "Permissions: " ++ show (fGetPermissions file)
       sizeLine = "Size: " ++ show (fGetSize file)
       modLine = "Modified: " ++ showOptionalTime (fGetModificationTime file)
-      creationLine = "Created: " ++ showOptionalTime (fGetCreationTime file)
       typeLine = "Type: " ++ getFileMimeTypeByName (takeFileName fullPath)
     Right dir -> [pathLine, permissionsLine, sizeLine, fileCntLine]     where
       permissionsLine = "Permissions: " ++ show (dGetPermissions dir)

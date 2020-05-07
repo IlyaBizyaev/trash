@@ -45,7 +45,6 @@ import qualified Data.Text                     as TS
 
 data FileRevision = FileRevision {
   frGetName :: String,
-  frGetTimestamp :: UTCTime,
   frGetContent :: B.ByteString
 }
 
@@ -53,8 +52,7 @@ data FileRevision = FileRevision {
 data File = File {
   fGetPermissions :: Permissions,
   fGetModificationTime :: Maybe UTCTime,
-  fGetCreationTime :: Maybe UTCTime,
-  fGetSize :: Int,
+  fGetSize :: Integer,
   fGetContent :: B.ByteString
 }
 
@@ -118,7 +116,7 @@ removeFilesFromTrackerData trackerData paths = foldl removeFile
 data Dir = Dir {
   dGetTrackerData :: Maybe TrackerData,
   dGetPermissions :: Permissions,
-  dGetSize :: Int,
+  dGetSize :: Integer,
   dGetChildren :: Map.Map FilePath DirEntry
 }
 
@@ -140,13 +138,12 @@ type DirEntry = Either File Dir
 buildFileWithContent :: String -> File
 buildFileWithContent content = File { fGetPermissions      = defaultPermissions
                                     , fGetModificationTime = Nothing
-                                    , fGetCreationTime     = Nothing
                                     , fGetSize             = byteStringSize
                                     , fGetContent          = byteStringContent
                                     }
  where
   byteStringContent  = BC.pack content
-  byteStringSize     = B.length byteStringContent
+  byteStringSize     = (toInteger . B.length) byteStringContent
   defaultPermissions = emptyPermissions
 
 isDirTracked :: Dir -> Bool
