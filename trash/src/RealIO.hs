@@ -29,10 +29,16 @@ import           Control.Monad                  ( when )
 import qualified Data.Map.Strict               as Map
 import qualified Data.ByteString               as B
 import qualified Data.ByteString.Char8         as BC
-import           Data.List                      ( elemIndex )
+import           Data.List                      ( elemIndex
+                                                , partition
+                                                )
+import           Data.Maybe                     ( fromMaybe )
 import           PathUtils                      ( lastSegment )
 
+trackerSubdirName :: String
 trackerSubdirName = ".tracker"
+
+indexFileName :: String
 indexFileName = "index"
 
 readDirEntryFromFilesystem :: FilePath -> IO DirEntry
@@ -76,7 +82,16 @@ readDirEntryFromFilesystem objectPath = do
                   , fGetSize             = size
                   , fGetContent          = content
                   }
-  listDirectoryRecursively dirPath = (return [] :: IO [FilePath])
+  listDirectoryRecursively dirPath = do
+    children <- listDirectory dirPath
+    let childrenFullPaths = map (dirPath </>) children
+    isDir <- mapM doesDirectoryExist childrenFullPaths
+    let childrenWithStatus = zip isDir childrenFullPaths
+    let (subdirsWithStatus, filesWithStatus) = partition fst childrenWithStatus
+    let files              = map snd filesWithStatus
+    let subdirs            = map snd subdirsWithStatus
+    recursiveRes <- mapM listDirectoryRecursively subdirs
+    return $ files ++ concat recursiveRes
   splitLast char str =
     let n = elemIndex char (reverse str)
     in  case n of
@@ -86,16 +101,37 @@ readDirEntryFromFilesystem objectPath = do
   safeReadInteger s = case reads s of
     [(x, "")] -> Just x
     _         -> Nothing
-  relPathToRev path = parseRev . (splitLast '_') $ path where
+  relPathToRev path = parseRev . (splitLast '_') $ path   where
     parseRev (p, shouldBeVer) = do
       ver <- safeReadInteger shouldBeVer
       return (p, ver)
-  insertRevToMap oldMap ((path, ver), content) = case Map.lookup path oldMap of
-    Nothing -> Map.insert path (Map.singleton ver revision) oldMap
-    Just mapForPath -> Map.insert path (Map.insert ver revision mapForPath) oldMap
-    where
-      revision = FileRevision {frGetName = "keklolidk", frGetContent = content}
-  readIndexFile indexContent = undefined
+  insertRevToMap mapVerToSumm oldMap ((path, ver), content) =
+    case Map.lookup path oldMap of
+      Nothing -> Map.insert path (Map.singleton ver revision) oldMap
+      Just mapForPath ->
+        Map.insert path (Map.insert ver revision mapForPath) oldMap
+   where
+    revName  = Data.Maybe.fromMaybe "untitled" (Map.lookup ver mapVerToSumm)
+    revision = FileRevision { frGetName = revName, frGetContent = content }
+  splitAtFirst x = fmap (drop 1) . break (x ==)
+  summLineToPair line = parseRev . (splitAtFirst ' ') $ line   where
+    parseRev (shouldBeVer, s) = do
+      ver <- safeReadInteger shouldBeVer
+      return (ver, s)
+  readIndexFile indexContent = do
+    let strContent   = BC.unpack indexContent
+    let parseLastVer = reads strContent :: [(Integer, String)]
+    case parseLastVer of
+      [] -> throwIO $ userError "No last revision version in tracker index"
+      [(lastVer, summaryList)] -> do
+        let summaryLines      = lines summaryList
+        let mbSummaryStrPairs = mapM summLineToPair summaryLines
+        case mbSummaryStrPairs of
+          Nothing ->
+            throwIO $ userError "Illegal revision version in tracker index"
+          Just summaryPairs -> return (lastVer, Map.fromList summaryPairs)
+      _ -> do
+        throwIO $ userError "unreachable"
   readDirTrackerData path = do
     let trackerSubdirPath = path </> trackerSubdirName
     trackerSubdirExists <- doesDirectoryExist trackerSubdirPath
@@ -105,22 +141,22 @@ readDirEntryFromFilesystem objectPath = do
       then return Nothing
       else do
         indexContent <- B.readFile indexFilePath
-        let maybeLastVersion = BC.readInteger indexContent
-        case maybeLastVersion of
-          Nothing -> throwIO $ userError "Invalid index file in tracker data"
-          Just (lastVersion, _) -> do
-            childPaths <- listDirectoryRecursively trackerSubdirPath
-            let childPathsWithoutIndex = filter (/= indexFilePath) childPaths
-            let childFullPaths = map (path </>) childPathsWithoutIndex
-            contents <- mapM B.readFile childFullPaths
-            let childPathsWithRevisionIndexes =
-                  mapM relPathToRev childPathsWithoutIndex
-            case childPathsWithRevisionIndexes of
-              Nothing -> throwIO $ userError "Invalid revision files in tracker data"
-              Just revPairs -> do
-                let z = zip revPairs contents
-                let newRevs = foldl insertRevToMap Map.empty z
-                return $ Just $ TrackerData {tGetLastVersion = lastVersion, tGetRevisions = newRevs}
+        (lastVersion, mapVerToSummary) <- readIndexFile indexContent
+        childPaths <- listDirectoryRecursively trackerSubdirPath
+        let childPathsWithoutIndex = filter (/= indexFilePath) childPaths
+        let childRelPaths =
+              map (makeRelative trackerSubdirPath) childPathsWithoutIndex
+        contents <- mapM B.readFile childPathsWithoutIndex
+        let childPathsWithRevisionIndexes = mapM relPathToRev childRelPaths
+        case childPathsWithRevisionIndexes of
+          Nothing ->
+            throwIO $ userError "Invalid revision files in tracker data"
+          Just revPairs -> do
+            let z       = zip revPairs contents
+            let newRevs = foldl (insertRevToMap mapVerToSummary) Map.empty z
+            return $ Just $ TrackerData { tGetLastVersion = lastVersion
+                                        , tGetRevisions   = newRevs
+                                        }
 
 
 writeDirToFilesystem :: Dir -> IO ()
