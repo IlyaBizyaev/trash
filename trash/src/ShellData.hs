@@ -11,12 +11,14 @@ module ShellData
 where
 
 import FileSystem (Dir (..))
+import           Data.List                      ( intercalate )
 
 shellVersionAndCodename :: String
 shellVersionAndCodename = "v0.1.0 tragic speshka"
 
 data ShellCommand = EmptyCommand
                   | ExitCommand
+                  | DebugCommand
                   | CdCommand FilePath
                   | LsCommand FilePath
                   | TouchCommand FilePath
@@ -41,6 +43,9 @@ data ShellState = ShellState {
   sGetPwd        :: FilePath,
   sGetTrackerDir :: Maybe FilePath
 }
+
+instance Show ShellState where
+  show (ShellState dir pwd trackerPath) = intercalate "\n" ["PWD: " ++ pwd, "Tracker: " ++ show trackerPath, "FS: " ++ show dir]
 
 data CommandException = ReservedObjectName
                       | IllegalObjectType

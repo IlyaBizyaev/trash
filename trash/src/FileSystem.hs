@@ -56,12 +56,12 @@ data File = File {
   fGetModificationTime :: Maybe UTCTime,
   fGetSize             :: Integer,
   fGetContent          :: B.ByteString
-}
+} deriving (Show)
 
 data TrackerData = TrackerData {
   tGetLastVersion :: Integer,
   tGetRevisions   :: Map.Map String (Map.Map Integer FileRevision)
-}
+} deriving Show
 
 addRevisionsToTrackerData
   :: TrackerData -> [(FilePath, FileRevision)] -> TrackerData
@@ -118,7 +118,7 @@ data Dir = Dir {
   dGetPermissions :: Permissions,
   dGetSize        :: Integer,
   dGetChildren    :: Map.Map FilePath DirEntry
-}
+} deriving (Show)
 
 emptyDir :: Dir
 emptyDir = Dir { dGetTrackerData = Nothing

@@ -162,13 +162,10 @@ writeDirEntryToFilesystem path (Right dir) = do
   let targetChildrenMap = dGetChildren dir
   let targetChildren    = Map.keys targetChildrenMap
   let curToDelete       = curChildren \\ targetChildren
-  let targetToCreate    = targetChildren \\ curChildren
   mapM_ (removePathForcibly . (path </>)) curToDelete
   mapM_
-    ( (\p -> writeDirEntryToFilesystem p (targetChildrenMap Map.! p))
-    . (path </>)
-    )
-    targetToCreate
+    (\p -> writeDirEntryToFilesystem (path </> p) (targetChildrenMap Map.! p))
+    targetChildren
   case dGetTrackerData dir of
     Nothing          -> return ()
     Just trackerData -> do
