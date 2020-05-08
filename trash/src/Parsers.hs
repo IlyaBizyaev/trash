@@ -35,8 +35,7 @@ cliOptionsInfo = info
 
 shellCommandParser :: Parser ShellCommand
 shellCommandParser = hsubparser
-  (  command "help" (info (pure HelpCommand) (progDesc "Display usage help"))
-  <> command "exit" (info (pure ExitCommand) (progDesc "Exit the shell"))
+  (  command "exit" (info (pure ExitCommand) (progDesc "Exit the shell"))
   <> command
        "cd"
        (info

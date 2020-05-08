@@ -55,7 +55,6 @@ execNextCommand (cmd : cmds) st = do
             printPrompt (sGetPwd newSt)
         execNextCommand cmds newSt
        where
-        execCommand HelpCommand              = helpCmd
         execCommand (LsCommand    path     ) = lsCmd path
         execCommand (CdCommand    path     ) = cdCmd path
         execCommand (TouchCommand path     ) = touchCmd path
@@ -85,10 +84,6 @@ printPrompt pwd = do
 
 updatePwd :: FilePath -> ShellState -> ShellState
 updatePwd newPwd st = updateTrackerPath st { sGetPwd = newPwd }
-
-helpCmd :: ExceptT CommandException (State ShellState) String
-helpCmd = return
-  "TODO: help text, or better learn to make optparse-applicative display this"
 
 cdCmd :: FilePath -> ExceptT CommandException (State ShellState) String
 cdCmd path = do

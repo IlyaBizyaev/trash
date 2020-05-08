@@ -16,7 +16,6 @@ shellVersionAndCodename :: String
 shellVersionAndCodename = "v0.1.0 tragic speshka"
 
 data ShellCommand = EmptyCommand
-                  | HelpCommand
                   | ExitCommand
                   | CdCommand FilePath
                   | LsCommand FilePath
