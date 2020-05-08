@@ -11,6 +11,7 @@ module CommandHelpers
   , getTrackerData
   , forgetDirEntry
   , forgetDirEntryIfTracked
+  , modifyDirEntryAtPath
   )
 where
 
@@ -24,13 +25,13 @@ import           ShellData                      ( ShellState(..)
 import           FileSystem                     ( Dir(..)
                                                 , TrackerData(..)
                                                 , DirEntry
+                                                , emptyDir
+                                                , calculateSize
                                                 , getDirEntryByFullPath
-                                                , addDirEntryAtPath
-                                                , rmDirEntryAtPath
-                                                , isFileTrackedInDir
                                                 )
 import           System.FilePath.Posix
 import           PathUtils                      ( fullNormalize )
+import qualified Data.Map.Strict               as Map
 
 makePathAbsolute
   :: FilePath -> ExceptT CommandException (State ShellState) FilePath
@@ -103,17 +104,51 @@ type DirEntryFunction
 type TrackerDataFunction
   = Maybe TrackerData -> Either CommandException (Maybe TrackerData)
 
--- the complication here is splitting the path, while considering that head can be '/'
--- maybe we can call getDirEntryByFullPath, which should be smart enough to implement this concept?
--- use calculateSize
-modifyDirEntryAtPath :: Dir -> FilePath -> DirEntryFunction -> Maybe Dir
-modifyDirEntryAtPath dir path f = undefined
+modifyDirEntryAtPath :: Dir -> FilePath -> DirEntryFunction -> Either CommandException (Maybe Dir)
+modifyDirEntryAtPath rootDir fullPath func = do
+    mbDirent <- modifyDirEntryAtPathComponents (Right rootDir) pathComponents func
+    case mbDirent of
+      Nothing -> return $ Just emptyDir
+      Just (Left _) -> Left UnknownException
+      Just (Right dir) -> return $ Just dir
+  where
+  normalizedPath = fullNormalize fullPath
+  -- We omit "/", which is always present in split full paths
+  pathComponents = tail $ splitDirectories normalizedPath
+  modifyDirEntryAtPathComponents :: DirEntry -> [FilePath] -> DirEntryFunction -> Either CommandException (Maybe DirEntry)
+  modifyDirEntryAtPathComponents de [] f = f (Just de)
+  modifyDirEntryAtPathComponents (Left _) _ _ = Left UnknownException
+  modifyDirEntryAtPathComponents (Right dir) (c:cs) f = do
+    resultingMbChild <- optResultingMbChild
+    let resultingChildren = case resultingMbChild of
+          Nothing -> Map.delete c originalChildren
+          Just resChild -> Map.insert c resChild originalChildren
+    let updatedDir = dir {dGetChildren = resultingChildren}
+    return $ Just $ calculateSize $ Right updatedDir
+    where
+    originalChildren = dGetChildren dir
+    originalMbChild = Map.lookup c originalChildren
+    optResultingMbChild = case originalMbChild of
+      Nothing -> if null cs then f Nothing else Left UnknownException
+      Just de -> modifyDirEntryAtPathComponents de cs f
 
 modifyTrackerDataAtPath
   :: Dir -> FilePath -> (TrackerData -> TrackerData) -> Maybe Dir
 modifyTrackerDataAtPath dir path f = modifyDirEntryAtPath dir path newF
-  where newF de = undefined -- case de of; TODO: how to distinguish files and dirs here? keep files as is, change dirs?
+  where newF de = undefined
+-- case de of; TODO: how to distinguish files and dirs here? keep files as is, change dirs?
+-- try to use modifyDirEntryAtPath
 
+-- addDirEntryAtPath: use modifyDirEntryAtPath
+-- rmDirEntryAtPath: use modifyDirEntryAtPath
+addDirEntryAtPath :: Dir -> DirEntry -> FilePath -> Dir
+addDirEntryAtPath = undefined
+-- terrible note: this has to update sizes of all parent dirs
+
+rmDirEntryAtPath :: Dir -> FilePath -> Dir
+rmDirEntryAtPath = undefined
+-- and this, too
+-- and even worse, both of these can fail, so should mb return Maybe
 
 -- now, consider also File -> File and Dir -> Dir; consider if they worked for
 -- <nothing> -> de and de -> <nothing> cases; doesn't that describe most of your shell code?!

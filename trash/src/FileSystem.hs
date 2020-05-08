@@ -11,8 +11,6 @@ module FileSystem
   , listDirEntries
   , getDirEntryByFullPath
   , buildFileWithContent
-  , addDirEntryAtPath
-  , rmDirEntryAtPath
   , emptyDir
   , isFileTrackedInDir
   , findDirentsBySubstring
@@ -159,15 +157,6 @@ listFilesInDirEntry path (Left  _  ) = [path]
 listFilesInDirEntry path (Right dir) = map (path </>) allFiles where
   children = Map.toAscList (dGetChildren dir)
   allFiles = concatMap (uncurry listFilesInDirEntry) children
-
-addDirEntryAtPath :: Dir -> DirEntry -> FilePath -> Dir
-addDirEntryAtPath = undefined
--- terrible note: this has to update sizes of all parent dirs
-
-rmDirEntryAtPath :: Dir -> FilePath -> Dir
-rmDirEntryAtPath = undefined
--- and this, too
--- and even worse, both of these can fail, so should mb return Maybe
 
 getDirEntryByFullPath :: Dir -> FilePath -> Maybe DirEntry
 getDirEntryByFullPath rootDir fullPath = getDirEntryByPathComponents
