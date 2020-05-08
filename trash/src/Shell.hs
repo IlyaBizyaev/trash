@@ -51,6 +51,7 @@ import           Tracker                        ( initCmd
                                                 , checkoutCmd
                                                 , mergeCmd
                                                 )
+import           PathUtils                      ( fullNormalize )
 import qualified System.Directory              as SD
 
 runREPL :: IO ()
@@ -59,7 +60,7 @@ runREPL = do
   printPrompt initialPwd
   initialDir <- readDirEntryFromFilesystem initialPwd
   case initialDir of
-    Left _ -> hPutStrLn stderr "unreachable"
+    Left  _     -> hPutStrLn stderr "unreachable"
     Right initD -> do
       let initialTrackerDir = if isDirTracked initD then Just "/" else Nothing
       stdinContents <- getContents
@@ -81,7 +82,7 @@ execNextCommand (cmd : cmds) st = do
       _           -> do
         let (res, newSt) = runState (runExceptT (execCommand c)) st
         case res of
-          Left  e -> do
+          Left e -> do
             hPrint stderr e
             hFlush stderr
           Right s -> do
@@ -103,10 +104,10 @@ execNextCommand (cmd : cmds) st = do
         execCommand (StatCommand    path   ) = statCmd path
         execCommand (TrackerCommand subc   ) = execTrackerSubcommand subc
 
-        execTrackerSubcommand InitCommand          = initCmd
-        execTrackerSubcommand (AddCommand    path summary) = addCmd path summary
-        execTrackerSubcommand (LogCommand    path) = logCmd path
-        execTrackerSubcommand (ForgetCommand path) = forgetCmd path
+        execTrackerSubcommand InitCommand               = initCmd
+        execTrackerSubcommand (AddCommand path summary) = addCmd path summary
+        execTrackerSubcommand (LogCommand    path     ) = logCmd path
+        execTrackerSubcommand (ForgetCommand path     ) = forgetCmd path
         execTrackerSubcommand (ForgetRevCommand path rev) =
           forgetRevCmd path rev
         execTrackerSubcommand (CheckoutCommand path rev) = checkoutCmd path rev
@@ -122,7 +123,7 @@ updatePwd :: FilePath -> ShellState -> ShellState
 updatePwd path st = st { sGetPwd = newPwd, sGetTrackerDir = newTrackerDir } where
   rootDir          = sGetRootDir st
   oldPwd           = sGetPwd st
-  newPwd           = oldPwd </> path -- TODO: somehow normalize here, or the result can make all kinds of weird things
+  newPwd           = oldPwd </> fullNormalize path
   newPwdComponents = (reverse . splitDirectories) newPwd
   newTrackerDir    = findClosestTrackedAncestor newPwdComponents
   findClosestTrackedAncestor []         = Nothing

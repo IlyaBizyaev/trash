@@ -34,12 +34,13 @@ import           ShellData                      ( ShellState(..)
 import           System.FilePath.Posix
 import           Data.List                      ( intercalate )
 import           CommandHelpers                 ( getDirEntry
-                                                , isPathAbsent
                                                 , addDirEntry
                                                 , rmDirEntry
                                                 , forgetDirEntryIfTracked
+                                                , makePathAbsolute
                                                 )
-
+import           PathUtils                      ( lastSegment )
+import RealIO (trackerSubdirName)
 
 lsCmd :: FilePath -> ExceptT CommandException (State ShellState) String
 lsCmd path = do
@@ -51,16 +52,12 @@ lsCmd path = do
 touchCmd :: FilePath -> ExceptT CommandException (State ShellState) String
 touchCmd path = writeCmd path ""
 
--- forbid making .tracker dir
 mkdirCmd :: FilePath -> ExceptT CommandException (State ShellState) String
 mkdirCmd path = do
-  let normalizedPath = normalise path -- Not enough, need to solve .. etc.
-  -- ^ TODO: attempt to reduce duplication
-  unless (isValid normalizedPath) (throwError UnknownException)
-  isAbsent <- isPathAbsent normalizedPath
-  unless isAbsent (throwError UnknownException)
+  fullPath    <- makePathAbsolute path
+  when (lastSegment fullPath == trackerSubdirName) (throwError UnknownException)
   let direntToWrite = Right emptyDir
-  addDirEntry direntToWrite path
+  addDirEntry direntToWrite fullPath
   return ""
 
 catCmd :: FilePath -> ExceptT CommandException (State ShellState) String
@@ -72,43 +69,32 @@ catCmd path = do
 
 rmCmd :: FilePath -> ExceptT CommandException (State ShellState) String
 rmCmd path = do
-  let normalizedPath = normalise path -- Not enough, need to solve .. etc.
-  unless (isValid normalizedPath) (throwError UnknownException)
-  isAbsent <- isPathAbsent normalizedPath
-  when isAbsent (throwError UnknownException)
-  rmDirEntry path
-  forgetDirEntryIfTracked path
+  fullPath    <- makePathAbsolute path
+  rmDirEntry fullPath
+  forgetDirEntryIfTracked fullPath
   return ""
 
--- forbid writing .tracker file
 writeCmd
   :: FilePath -> String -> ExceptT CommandException (State ShellState) String
 writeCmd path text = do
-  let normalizedPath = normalise path -- Not enough, need to solve .. etc.
-  unless (isValid normalizedPath) (throwError UnknownException)
-  isAbsent <- isPathAbsent normalizedPath
-  unless isAbsent (throwError UnknownException)
+  fullPath    <- makePathAbsolute path
+  when (lastSegment fullPath == trackerSubdirName) (throwError UnknownException)
   let direntToWrite = Left $ buildFileWithContent text
   addDirEntry direntToWrite path
   return ""
 
 findCmd :: String -> ExceptT CommandException (State ShellState) String
 findCmd s = do
-  st <- get
-  let pwd = sGetPwd st
-  dirent <- getDirEntry pwd
+  dirent <- getDirEntry "."
   return $ intercalate "\n" (findDirentsBySubstring s dirent)
 
 statCmd :: FilePath -> ExceptT CommandException (State ShellState) String
 statCmd path = do
-  let normalizedPath = normalise path -- Not enough, need to solve .. etc.
-  let fullPath       = normalizedPath -- TODO: need to use </>, but what if passed path is already absolute?
-  -- need to fix this everywhere
+  fullPath    <- makePathAbsolute path
   let pathLine       = "Path: " ++ fullPath
-  dirent <- getDirEntry normalizedPath
+  dirent <- getDirEntry path
   return $ intercalate "\n" $ case dirent of
-    Left file ->
-      [pathLine, permissionsLine, sizeLine, modLine, typeLine]     where
+    Left file -> [pathLine, permissionsLine, sizeLine, modLine, typeLine]     where
       permissionsLine = "Permissions: " ++ show (fGetPermissions file)
       sizeLine = "Size: " ++ show (fGetSize file)
       modLine = "Modified: " ++ showOptionalTime (fGetModificationTime file)

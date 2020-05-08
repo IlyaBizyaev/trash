@@ -4,6 +4,8 @@
 module RealIO
   ( readDirEntryFromFilesystem
   , writeDirEntryToFilesystem
+  , trackerSubdirName
+  , indexFileName
   )
 where
 

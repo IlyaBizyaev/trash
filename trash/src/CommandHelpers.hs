@@ -3,7 +3,6 @@
 
 module CommandHelpers
   ( makePathAbsolute
-  , isPathAbsent
   , addDirEntry
   , replaceDirEntry
   , rmDirEntry
@@ -46,14 +45,6 @@ makePathAbsolute
 makePathAbsolute path = do
   st <- lift get
   return $ (sGetPwd st) </> fullNormalize path
-
-isPathAbsent :: FilePath -> ExceptT CommandException (State ShellState) Bool
-isPathAbsent path = do
-  st <- lift get
-  fullPath <- makePathAbsolute path
-  case getDirEntryByFullPath (sGetRootDir st) fullPath of
-    Nothing -> return True
-    _       -> return False
 
 getTrackerDirectory :: ExceptT CommandException (State ShellState) FilePath
 getTrackerDirectory = do
