@@ -29,6 +29,8 @@ import           FileSystem                     ( File(..)
                                                 , addRevisionsToTrackerData
                                                 , listFilesInDirEntry
                                                 , getLogFromTrackerData
+                                                , removeRevisionFromTrackerData
+                                                , getRevisionFromTrackerData
                                                 )
 import           CommandHelpers                 ( makePathAbsolute
                                                 , getDirEntry
@@ -39,6 +41,7 @@ import           CommandHelpers                 ( makePathAbsolute
                                                 , TrackerDataFunction
                                                 )
 import           Data.List                      ( intercalate )
+import           Data.Either                    ( isRight )
 
 initCmd :: ExceptT CommandException (State ShellState) String
 initCmd = do
@@ -101,28 +104,38 @@ forgetCmd path = do
 
 forgetRevCmd
   :: FilePath -> Integer -> ExceptT CommandException (State ShellState) String
-forgetRevCmd path rev = undefined
--- use: removeRevisionFromTrackerData, modifyTrackerData
--- function on state's tracker dir data:
--- * if no tracker dir, fail with error
--- * if have tracker dir but not file's revision log in it, fail with error
--- * if have file revision log but not this rev in it, fail with error
--- * otherwise delete file's key from tracker dir data
--- along the way, need file path relative to tracker dir (child/eq, or fail)
+forgetRevCmd path rev = do
+  fullPath    <- makePathAbsolute path
+  trackerPath <- getTrackerDirectory
+  let relativePath  = makeRelativeTo trackerPath fullPath
+  case relativePath of
+    Nothing -> throwError UnknownException
+    Just relPath -> do
+      modifyTrackerData (f relPath)
+      return ""
+  where
+    f :: FilePath -> TrackerDataFunction
+    f _ Nothing = Left UnknownException
+    f p (Just trackerData) = case removeRevisionFromTrackerData trackerData p rev of
+      Nothing -> Left UnknownException
+      Just td -> return $ Just td
 
 checkoutCmd
   :: FilePath -> Integer -> ExceptT CommandException (State ShellState) String
-checkoutCmd path rev = undefined
--- use: getRevisionFromTrackerData
--- ensure vcs dir is not Nothing
--- get full path of the target path
--- verify full path is a child/eq of tracker path
--- get that path relative to tracker path
--- get dirent for path (normalized relative? or works with absolute?)
--- get vcs dir
--- get tracker data
--- for file dirent: query specified rev, display contents/fail
--- for dir dirent: display error message
+checkoutCmd path version = do
+  trackerData <- getTrackerData
+  fullPath    <- makePathAbsolute path
+  dirent <- getDirEntry path
+  when (isRight dirent) (throwError UnknownException)
+  trackerPath <- getTrackerDirectory
+  let relativePath  = makeRelativeTo trackerPath fullPath
+  case relativePath of
+    Nothing -> throwError UnknownException
+    Just relPath -> do
+      let mbRev = getRevisionFromTrackerData trackerData relPath version
+      case mbRev of
+        Nothing -> throwError UnknownException
+        Just rev -> return $ show rev
 
 mergeCmd
   :: FilePath

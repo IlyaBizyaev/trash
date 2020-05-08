@@ -136,8 +136,6 @@ emptyTrackerData =
 
 type DirEntry = Either File Dir
 
--- TODO: learn to properly pack the content, maybe for another input format (Text?)
--- TODO: and verify that size measuring makes sense
 buildFileWithContent :: String -> File
 buildFileWithContent content = File { fGetPermissions      = defaultPermissions
                                     , fGetModificationTime = Nothing

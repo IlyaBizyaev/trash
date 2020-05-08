@@ -38,7 +38,7 @@ import           FileSystem                     ( Dir(..)
                                                 , listFilesInDirEntry
                                                 )
 import           System.FilePath.Posix
-import           PathUtils                      ( fullNormalize )
+import           PathUtils                      ( fullNormalize, makeRelativeTo )
 import qualified Data.Map.Strict               as Map
 
 makePathAbsolute
@@ -128,9 +128,15 @@ modifyTrackerData f = do
 
 forgetDirEntry :: FilePath -> ExceptT CommandException (State ShellState) ()
 forgetDirEntry path = do
+  fullPath    <- makePathAbsolute path
   dirent <- getDirEntry path
-  let pathsToForget = listFilesInDirEntry path dirent
-  modifyTrackerData (f pathsToForget)
+  trackerPath <- getTrackerDirectory
+  let relativePath  = makeRelativeTo trackerPath fullPath
+  case relativePath of
+    Nothing -> throwError UnknownException
+    Just relPath -> do
+      let pathsToForget = listFilesInDirEntry relPath dirent
+      modifyTrackerData (f pathsToForget)
   where
     f :: [FilePath] -> TrackerDataFunction
     f _ Nothing = Left UnknownException
