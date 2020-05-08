@@ -24,6 +24,7 @@ module FileSystem
   , addRevisionsToTrackerData
   , removeRevisionFromTrackerData
   , removeFilesFromTrackerData
+  , showPermissions
   )
 where
 
@@ -35,7 +36,7 @@ import qualified Data.Text as TS
 import Data.Time.Clock (UTCTime)
 import Network.Mime
 import PathUtils (fullNormalize)
-import System.Directory (Permissions, emptyPermissions, readable, writable)
+import System.Directory (Permissions, emptyPermissions, executable, readable, searchable, writable)
 import System.FilePath.Posix
 
 data FileRevision = FileRevision {
@@ -50,6 +51,12 @@ instance Show FileRevision where
 
 defaultPermissions :: Permissions
 defaultPermissions = emptyPermissions { readable = True, writable = True }
+
+showPermissions :: Permissions -> String
+showPermissions p = pRead : pWrite : [pExecute] where
+  pRead    = if readable p then 'r' else '-'
+  pWrite   = if writable p then 'w' else '-'
+  pExecute = if (executable p || searchable p) then 'x' else '-'
 
 data File = File {
   fGetPermissions      :: Permissions,

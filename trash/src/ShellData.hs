@@ -10,8 +10,8 @@ module ShellData
   )
 where
 
+import Data.List (intercalate)
 import FileSystem (Dir (..))
-import           Data.List                      ( intercalate )
 
 shellVersionAndCodename :: String
 shellVersionAndCodename = "v0.1.0 tragic speshka"
@@ -45,7 +45,9 @@ data ShellState = ShellState {
 }
 
 instance Show ShellState where
-  show (ShellState dir pwd trackerPath) = intercalate "\n" ["PWD: " ++ pwd, "Tracker: " ++ show trackerPath, "FS: " ++ show dir]
+  show (ShellState dir pwd trackerPath) = intercalate
+    "\n"
+    ["PWD: " ++ pwd, "Tracker: " ++ show trackerPath, "FS: " ++ show dir]
 
 data CommandException = ReservedObjectName
                       | IllegalObjectType

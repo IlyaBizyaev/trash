@@ -113,9 +113,9 @@ modifyTrackerData f = do
   let rootDir       = sGetRootDir st
   let mbTrackerPath = sGetTrackerDir st
   case mbTrackerPath of
-    Nothing -> throwError LocationNotTracked
-    Just td -> do
-      let fResult = modifyTrackerDataAtPath rootDir td f
+    Nothing     -> throwError LocationNotTracked
+    Just tdPath -> do
+      let fResult = modifyTrackerDataAtPath rootDir tdPath f
       case fResult of
         Left  e   -> throwError e
         Right dir -> do
@@ -233,4 +233,3 @@ rmDirEntryAtPath rootDir path = do
   f :: DirEntryFunction
   f Nothing = Left ObjectNotFound
   f _       = Right Nothing
-

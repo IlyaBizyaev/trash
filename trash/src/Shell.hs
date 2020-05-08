@@ -21,18 +21,20 @@ import Tracker (addCmd, checkoutCmd, forgetCmd, forgetRevCmd, initCmd, logCmd, m
 
 runREPL :: IO ()
 runREPL = do
-  initialPwd <- SD.getCurrentDirectory
+  realPwd <- SD.getCurrentDirectory
+  let initialPwd = "/"
   printPrompt initialPwd
-  initialDir <- readDirEntryFromFilesystem initialPwd
+  initialDir <- readDirEntryFromFilesystem realPwd
   case initialDir of
     Left  _     -> hPutStrLn stderr "unreachable"
     Right initD -> do
-      let initialTrackerDir = if isDirTracked initD then Just "/" else Nothing
+      let initialTrackerDir =
+            if isDirTracked initD then Just initialPwd else Nothing
       stdinContents <- getContents
       let initialState = ShellState initD initialPwd initialTrackerDir
-      let commands = lines stdinContents
+      let commands     = lines stdinContents
       finalState <- execNextCommand commands initialState
-      writeDirEntryToFilesystem initialPwd $ Right $ sGetRootDir finalState
+      writeDirEntryToFilesystem realPwd $ Right $ sGetRootDir finalState
 
 execNextCommand :: [String] -> ShellState -> IO ShellState
 execNextCommand []           st = return st
@@ -54,7 +56,7 @@ execNextCommand (cmd : cmds) st = do
         printPrompt (sGetPwd newSt)
         execNextCommand cmds newSt
        where
-        execCommand DebugCommand = debugCmd
+        execCommand DebugCommand             = debugCmd
         execCommand (LsCommand    path     ) = lsCmd path
         execCommand (CdCommand    path     ) = cdCmd path
         execCommand (TouchCommand path     ) = touchCmd path
@@ -65,7 +67,7 @@ execNextCommand (cmd : cmds) st = do
         execCommand (FindCommand    s      ) = findCmd s
         execCommand (StatCommand    path   ) = statCmd path
         execCommand (TrackerCommand subc   ) = execTrackerSubcommand subc
-        execCommand _             = return ""
+        execCommand _                        = return ""
 
         execTrackerSubcommand InitCommand               = initCmd
         execTrackerSubcommand (AddCommand path summary) = addCmd path summary

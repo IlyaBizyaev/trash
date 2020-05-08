@@ -14,13 +14,14 @@ module FileManager
 where
 
 import CommandHelpers (addDirEntry, forgetDirEntryIfTracked, getDirEntry, makePathAbsolute,
-                       rmDirEntry)
+                       replaceDirEntry, rmDirEntry)
 import Control.Monad.Except (ExceptT, throwError)
 import Control.Monad.State.Lazy
 import qualified Data.ByteString.Char8 as BC
 import Data.List (intercalate)
 import FileSystem (Dir (..), File (..), buildFileWithContent, emptyDir, findDirentsBySubstring,
-                   getChildCount, getFileMimeTypeByName, listDirEntries, showOptionalTime)
+                   getChildCount, getFileMimeTypeByName, listDirEntries, showOptionalTime,
+                   showPermissions)
 import PathUtils (lastSegment)
 import RealIO (trackerSubdirName)
 import ShellData (CommandException (..), ShellState (..))
@@ -66,7 +67,7 @@ writeCmd path text = do
   when (lastSegment fullPath == trackerSubdirName)
        (throwError ReservedObjectName)
   let direntToWrite = Left $ buildFileWithContent text
-  addDirEntry direntToWrite path
+  replaceDirEntry direntToWrite fullPath
   return ""
 
 findCmd :: String -> ExceptT CommandException (State ShellState) String
@@ -81,11 +82,13 @@ statCmd path = do
   dirent <- getDirEntry path
   return $ intercalate "\n" $ case dirent of
     Left file -> [pathLine, permissionsLine, sizeLine, modLine, typeLine]     where
-      permissionsLine = "Permissions: " ++ show (fGetPermissions file)
+      permissionsLine =
+        "Permissions: " ++ showPermissions (fGetPermissions file)
       sizeLine = "Size: " ++ show (fGetSize file)
-      modLine = "Modified: " ++ showOptionalTime (fGetModificationTime file)
+      modLine  = "Modified: " ++ showOptionalTime (fGetModificationTime file)
       typeLine = "Type: " ++ getFileMimeTypeByName (takeFileName fullPath)
     Right dir -> [pathLine, permissionsLine, sizeLine, fileCntLine]     where
-      permissionsLine = "Permissions: " ++ show (dGetPermissions dir)
-      sizeLine        = "Size: " ++ show (dGetSize dir)
-      fileCntLine     = "Files: " ++ show (getChildCount dir)
+      permissionsLine =
+        "Permissions: " ++ showPermissions (dGetPermissions dir)
+      sizeLine    = "Size: " ++ show (dGetSize dir)
+      fileCntLine = "Files: " ++ show (getChildCount dir)

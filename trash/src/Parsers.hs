@@ -36,7 +36,11 @@ cliOptionsInfo = info
 shellCommandParser :: Parser ShellCommand
 shellCommandParser = hsubparser
   (  command "exit" (info (pure ExitCommand) (progDesc "Exit the shell"))
-  <> command "debug" (info (pure DebugCommand) (progDesc "Display internal filesystem state"))
+  <> command
+       "debug"
+       (info (pure DebugCommand)
+             (progDesc "Display internal filesystem state")
+       )
   <> command
        "cd"
        (info

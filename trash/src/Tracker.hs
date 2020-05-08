@@ -13,8 +13,8 @@ module Tracker
 where
 
 import CommandHelpers (TrackerDataFunction, forgetDirEntry, getDirEntry, getTrackerData,
-                       getTrackerDirectory, makePathAbsolute, modifyTrackerData, replaceDirEntry,
-                       updateTrackerPath)
+                       getTrackerDirectory, makePathAbsolute, modifyTrackerData,
+                       modifyTrackerDataAtPath, replaceDirEntry, updateTrackerPath)
 import Control.Monad.Except (ExceptT, throwError)
 import Control.Monad.State.Lazy
 import qualified Data.ByteString as B
@@ -28,9 +28,16 @@ import ShellData (CommandException (..), ShellState (..))
 
 initCmd :: ExceptT CommandException (State ShellState) String
 initCmd = do
-  modifyTrackerData f
-  modify updateTrackerPath
-  return ""
+  st <- lift get
+  let rootDir = sGetRootDir st
+  let pwd     = sGetPwd st
+  case modifyTrackerDataAtPath rootDir pwd f of
+    Left  e   -> throwError e
+    Right dir -> do
+      let newSt = st { sGetRootDir = dir }
+      put newSt
+      modify updateTrackerPath
+      return ""
  where
   f :: TrackerDataFunction
   f Nothing = Right $ Just emptyTrackerData
@@ -163,5 +170,3 @@ mergeCmd path ver1 ver2 strategy = do
     "right" -> return $ frGetContent rev2
     "both"  -> return (B.append (frGetContent rev1) (frGetContent rev2))
     _       -> throwError UnknownMergeStrategy
-
-
