@@ -36,9 +36,7 @@ import           Data.List                      ( intercalate )
 import           CommandHelpers                 ( getDirEntry
                                                 , isPathAbsent
                                                 , addDirEntry
-                                                , replaceDirEntry
                                                 , rmDirEntry
-                                                , forgetDirEntry
                                                 , forgetDirEntryIfTracked
                                                 )
 

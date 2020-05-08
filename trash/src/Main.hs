@@ -11,8 +11,6 @@ import           Parsers                        ( CliOptions(..)
 import           Shell                          ( runREPL )
 import           Gui                            ( runGUI )
 
--- TODO: reenable -Werror
-
 main :: IO ()
 main = do
   cliOptions <- execParser cliOptionsInfo

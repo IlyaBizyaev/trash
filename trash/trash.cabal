@@ -30,8 +30,7 @@ executable trash
                      , FileSystem
                      , RealIO
                      , Paths_trash
-  -- other-extensions:
-  ghc-options:         -Wall
+  ghc-options:         -Wall -Werror
   build-depends:       base >=4.9 && < 5
                      , mtl
                      , time
