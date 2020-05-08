@@ -3,7 +3,7 @@
 
 module RealIO
   ( readDirEntryFromFilesystem
-  , writeDirToFilesystem
+  , writeDirEntryToFilesystem
   )
 where
 
@@ -22,6 +22,11 @@ import           System.Directory               ( doesPathExist
                                                 , listDirectory
                                                 , getFileSize
                                                 , doesFileExist
+                                                , setModificationTime
+                                                , setPermissions
+                                                , createDirectoryIfMissing
+                                                , removePathForcibly
+                                                , createDirectory
                                                 )
 import           System.FilePath.Posix
 import           Control.Exception              ( throwIO )
@@ -31,9 +36,11 @@ import qualified Data.ByteString               as B
 import qualified Data.ByteString.Char8         as BC
 import           Data.List                      ( elemIndex
                                                 , partition
+                                                , (\\)
+                                                , intercalate
                                                 )
 import           Data.Maybe                     ( fromMaybe )
-import           PathUtils                      ( lastSegment )
+import           Data.Foldable                  ( mapM_ )
 
 trackerSubdirName :: String
 trackerSubdirName = ".tracker"
@@ -159,5 +166,47 @@ readDirEntryFromFilesystem objectPath = do
                                         }
 
 
-writeDirToFilesystem :: Dir -> IO ()
-writeDirToFilesystem dir = undefined
+writeDirEntryToFilesystem :: FilePath -> DirEntry -> IO ()
+writeDirEntryToFilesystem path (Left file) = do
+  B.writeFile path (fGetContent file)
+  setPermissions path (fGetPermissions file)
+  let mbModTime = fGetModificationTime file
+  mapM_ (setModificationTime path) mbModTime
+writeDirEntryToFilesystem path (Right dir) = do
+  createDirectoryIfMissing False path
+  setPermissions path (dGetPermissions dir)
+  curChildren <- listDirectory path
+  let targetChildrenMap = dGetChildren dir
+  let targetChildren    = Map.keys targetChildrenMap
+  let curToDelete       = curChildren \\ targetChildren
+  let targetToCreate    = targetChildren \\ curChildren
+  mapM_ (removePathForcibly . (path </>)) curToDelete
+  mapM_
+    ( (\p -> writeDirEntryToFilesystem p (targetChildrenMap Map.! p))
+    . (path </>)
+    )
+    targetToCreate
+  case dGetTrackerData dir of
+    Nothing          -> return ()
+    Just trackerData -> do
+      let lastVersion   = tGetLastVersion trackerData
+      let revisions     = tGetRevisions trackerData
+      let revValues     = Map.elems revisions
+      let revVerMap     = Map.unions revValues
+      let revSummaryMap = Map.map (\fr -> frGetName fr) revVerMap
+      let summaryList = intercalate "\n" $ map
+            (\(ver, summ) -> show ver ++ ' ' : summ)
+            (Map.toList revSummaryMap)
+      let indexContent = show lastVersion ++ '\n':summaryList
+      let trackerSubdirPath = path </> trackerSubdirName
+      removePathForcibly trackerSubdirPath
+      createDirectory trackerSubdirPath
+      let indexFilePath = trackerSubdirPath </> indexFileName
+      B.writeFile indexFilePath (BC.pack indexContent)
+      let revList = Map.toList revisions
+      let revPairToRevList (p, m) = (p, Map.toList m)
+      let revListToTriples (p, l) = zip (repeat p) l
+      let tripleToFilename (p, (v, rev)) = ((trackerSubdirPath </> p) ++ '_':(show v), frGetContent rev)
+      let revPairToFilename = map tripleToFilename . revListToTriples . revPairToRevList
+      let revFileList = concatMap revPairToFilename revList
+      mapM_ (uncurry B.writeFile) revFileList

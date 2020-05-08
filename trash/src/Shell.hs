@@ -11,7 +11,7 @@ import           FileSystem                     ( getDirEntryByFullPath
                                                 , isDirTracked
                                                 )
 import           RealIO                         ( readDirEntryFromFilesystem
-                                                , writeDirToFilesystem
+                                                , writeDirEntryToFilesystem
                                                 )
 import           Control.Monad.Except           ( ExceptT
                                                 , runExceptT
@@ -61,13 +61,13 @@ runREPL = do
   case initialDir of
     Left _ -> hPutStrLn stderr "unreachable"
     Right initD -> do
-      let initialTrackerDir = if isDirTracked initialDir then Just "/" else Nothing
+      let initialTrackerDir = if isDirTracked initD then Just "/" else Nothing
       stdinContents <- getContents
-      let initialState = ShellState initialDir initialPwd initialTrackerDir
+      let initialState = ShellState initD initialPwd initialTrackerDir
       printPrompt initialPwd
       let commands = lines stdinContents
       finalState <- execNextCommand commands initialState
-      writeDirToFilesystem $ sGetRootDir finalState
+      writeDirEntryToFilesystem initialPwd $ Right $ sGetRootDir finalState
 
 execNextCommand :: [String] -> ShellState -> IO ShellState
 execNextCommand []           st = return st
