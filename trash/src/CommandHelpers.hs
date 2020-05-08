@@ -12,6 +12,8 @@ module CommandHelpers
   , forgetDirEntry
   , forgetDirEntryIfTracked
   , modifyDirEntryAtPath
+  , modifyTrackerDataAtPath
+  , modifyTrackerData
   )
 where
 
@@ -76,23 +78,40 @@ rmDirEntry path = do
 getDirEntry :: FilePath -> ExceptT CommandException (State ShellState) DirEntry
 getDirEntry path = do
   fullPath <- makePathAbsolute path
-  st <- lift get
+  st       <- lift get
   let rootDir = sGetRootDir st
   case getDirEntryByFullPath rootDir fullPath of
     Nothing -> throwError UnknownException
     Just de -> return de
 
-getTrackerData :: FilePath -> ExceptT CommandException (State ShellState) TrackerData
+getTrackerData
+  :: FilePath -> ExceptT CommandException (State ShellState) TrackerData
 getTrackerData path = do
   dirent <- getDirEntry path
   case dirent of
-    Left _ -> throwError UnknownException
+    Left  _   -> throwError UnknownException
     Right dir -> case dGetTrackerData dir of
       Nothing -> throwError UnknownException
       Just td -> return td
 
+modifyTrackerData :: TrackerDataFunction -> ExceptT CommandException (State ShellState) ()
+modifyTrackerData f = do
+  st       <- lift get
+  let rootDir = sGetRootDir st
+  let mbTrackerPath = sGetTrackerDir st
+  case mbTrackerPath of
+    Nothing -> throwError UnknownException
+    Just td -> do
+      let fResult = modifyTrackerDataAtPath rootDir td f
+      case fResult of
+        Left e -> throwError e
+        Right dir -> do
+          let newSt = st {sGetRootDir = dir}
+          put newSt
+-- use modifyTrackerDataAtPath
+
 forgetDirEntry :: FilePath -> ExceptT CommandException (State ShellState) ()
-forgetDirEntry = undefined -- use removeFilesFromTrackerData, mb listFilesInDirEntry
+forgetDirEntry = undefined -- use removeFilesFromTrackerData, mb listFilesInDirEntry, mb modifyTrackerData
 
 forgetDirEntryIfTracked
   :: FilePath -> ExceptT CommandException (State ShellState) ()
@@ -104,40 +123,58 @@ type DirEntryFunction
 type TrackerDataFunction
   = Maybe TrackerData -> Either CommandException (Maybe TrackerData)
 
-modifyDirEntryAtPath :: Dir -> FilePath -> DirEntryFunction -> Either CommandException (Maybe Dir)
+modifyDirEntryAtPath
+  :: Dir -> FilePath -> DirEntryFunction -> Either CommandException (Maybe Dir)
 modifyDirEntryAtPath rootDir fullPath func = do
-    mbDirent <- modifyDirEntryAtPathComponents (Right rootDir) pathComponents func
-    case mbDirent of
-      Nothing -> return $ Just emptyDir
-      Just (Left _) -> Left UnknownException
-      Just (Right dir) -> return $ Just dir
-  where
+  mbDirent <- modifyDirEntryAtPathComponents (Right rootDir) pathComponents func
+  case mbDirent of
+    Nothing          -> return $ Just emptyDir
+    Just (Left  _  ) -> Left UnknownException
+    Just (Right dir) -> return $ Just dir
+ where
   normalizedPath = fullNormalize fullPath
   -- We omit "/", which is always present in split full paths
   pathComponents = tail $ splitDirectories normalizedPath
-  modifyDirEntryAtPathComponents :: DirEntry -> [FilePath] -> DirEntryFunction -> Either CommandException (Maybe DirEntry)
-  modifyDirEntryAtPathComponents de [] f = f (Just de)
-  modifyDirEntryAtPathComponents (Left _) _ _ = Left UnknownException
-  modifyDirEntryAtPathComponents (Right dir) (c:cs) f = do
+  modifyDirEntryAtPathComponents
+    :: DirEntry
+    -> [FilePath]
+    -> DirEntryFunction
+    -> Either CommandException (Maybe DirEntry)
+  modifyDirEntryAtPathComponents de          []       f = f (Just de)
+  modifyDirEntryAtPathComponents (Left  _  ) _        _ = Left UnknownException
+  modifyDirEntryAtPathComponents (Right dir) (c : cs) f = do
     resultingMbChild <- optResultingMbChild
     let resultingChildren = case resultingMbChild of
-          Nothing -> Map.delete c originalChildren
+          Nothing       -> Map.delete c originalChildren
           Just resChild -> Map.insert c resChild originalChildren
-    let updatedDir = dir {dGetChildren = resultingChildren}
+    let updatedDir = dir { dGetChildren = resultingChildren }
     return $ Just $ calculateSize $ Right updatedDir
-    where
-    originalChildren = dGetChildren dir
-    originalMbChild = Map.lookup c originalChildren
+   where
+    originalChildren    = dGetChildren dir
+    originalMbChild     = Map.lookup c originalChildren
     optResultingMbChild = case originalMbChild of
       Nothing -> if null cs then f Nothing else Left UnknownException
       Just de -> modifyDirEntryAtPathComponents de cs f
 
 modifyTrackerDataAtPath
-  :: Dir -> FilePath -> (TrackerData -> TrackerData) -> Maybe Dir
-modifyTrackerDataAtPath dir path f = modifyDirEntryAtPath dir path newF
-  where newF de = undefined
--- case de of; TODO: how to distinguish files and dirs here? keep files as is, change dirs?
--- try to use modifyDirEntryAtPath
+  :: Dir
+  -> FilePath
+  -> TrackerDataFunction
+  -> Either CommandException Dir
+modifyTrackerDataAtPath dir path f = do
+  direntModification <- modifyDirEntryAtPath dir path newF
+  case direntModification of
+    Nothing -> Left UnknownException
+    Just d -> return d
+ where
+  newF :: Maybe DirEntry -> Either CommandException (Maybe DirEntry)
+  newF Nothing = Left UnknownException
+  newF (Just (Left _)) = Left UnknownException
+  newF (Just (Right d)) = do
+    let trackerData = dGetTrackerData d
+    fResult <- f trackerData
+    return $ Just $ Right d {dGetTrackerData = fResult}
+
 
 -- addDirEntryAtPath: use modifyDirEntryAtPath
 -- rmDirEntryAtPath: use modifyDirEntryAtPath
