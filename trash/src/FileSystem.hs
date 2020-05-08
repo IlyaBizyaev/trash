@@ -27,44 +27,40 @@ module FileSystem
   )
 where
 
-import           System.Directory               ( Permissions
-                                                , emptyPermissions
-                                                , readable
-                                                , writable
-                                                )
-import           Data.Time.Clock                ( UTCTime )
-import qualified Data.Map.Strict               as Map
-import           System.FilePath.Posix
-import           PathUtils                      ( fullNormalize )
-import           Network.Mime
-import qualified Data.ByteString               as B
-import qualified Data.ByteString.Char8         as BC
-import           Data.List                      ( isInfixOf )
-import qualified Data.Text                     as TS
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Char8 as BC
+import Data.List (isInfixOf)
+import qualified Data.Map.Strict as Map
+import qualified Data.Text as TS
+import Data.Time.Clock (UTCTime)
+import Network.Mime
+import PathUtils (fullNormalize)
+import System.Directory (Permissions, emptyPermissions, readable, writable)
+import System.FilePath.Posix
 
 data FileRevision = FileRevision {
-  frGetName :: String,
+  frGetName    :: String,
   frGetContent :: B.ByteString
 }
 
 instance Show FileRevision where
-  show revision = summaryLine ++ '\n':contentBlock where
-    summaryLine = "Summary: " ++ frGetName revision
+  show revision = summaryLine ++ '\n' : contentBlock   where
+    summaryLine  = "Summary: " ++ frGetName revision
     contentBlock = BC.unpack $ frGetContent revision
 
 defaultPermissions :: Permissions
-defaultPermissions = emptyPermissions {readable = True, writable = True}
+defaultPermissions = emptyPermissions { readable = True, writable = True }
 
 data File = File {
-  fGetPermissions :: Permissions,
+  fGetPermissions      :: Permissions,
   fGetModificationTime :: Maybe UTCTime,
-  fGetSize :: Integer,
-  fGetContent :: B.ByteString
+  fGetSize             :: Integer,
+  fGetContent          :: B.ByteString
 }
 
 data TrackerData = TrackerData {
   tGetLastVersion :: Integer,
-  tGetRevisions :: Map.Map String (Map.Map Integer FileRevision)
+  tGetRevisions   :: Map.Map String (Map.Map Integer FileRevision)
 }
 
 addRevisionsToTrackerData
@@ -120,8 +116,8 @@ removeFilesFromTrackerData trackerData paths = foldl removeFile
 data Dir = Dir {
   dGetTrackerData :: Maybe TrackerData,
   dGetPermissions :: Permissions,
-  dGetSize :: Integer,
-  dGetChildren :: Map.Map FilePath DirEntry
+  dGetSize        :: Integer,
+  dGetChildren    :: Map.Map FilePath DirEntry
 }
 
 emptyDir :: Dir
@@ -144,8 +140,8 @@ buildFileWithContent content = File { fGetPermissions      = defaultPermissions
                                     , fGetContent          = byteStringContent
                                     }
  where
-  byteStringContent  = BC.pack content
-  byteStringSize     = (toInteger . B.length) byteStringContent
+  byteStringContent = BC.pack content
+  byteStringSize    = (toInteger . B.length) byteStringContent
 
 isDirTracked :: Dir -> Bool
 isDirTracked dir = case dGetTrackerData dir of

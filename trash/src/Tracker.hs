@@ -12,37 +12,18 @@ module Tracker
   )
 where
 
-import           Control.Monad.Except           ( ExceptT
-                                                , throwError
-                                                )
-import           Control.Monad.State.Lazy
-import           ShellData                      ( ShellState(..)
-                                                , CommandException(..)
-                                                )
-import           PathUtils                      ( isChildOfPath
-                                                , makeRelativeTo
-                                                )
-import           FileSystem                     ( File(..)
-                                                , FileRevision(..)
-                                                , emptyTrackerData
-                                                , addRevisionsToTrackerData
-                                                , listFilesInDirEntry
-                                                , getLogFromTrackerData
-                                                , removeRevisionFromTrackerData
-                                                , getRevisionFromTrackerData
-                                                )
-import           CommandHelpers                 ( makePathAbsolute
-                                                , getDirEntry
-                                                , forgetDirEntry
-                                                , replaceDirEntry
-                                                , modifyTrackerData
-                                                , getTrackerDirectory
-                                                , getTrackerData
-                                                , TrackerDataFunction
-                                                )
-import           Data.List                      ( intercalate )
-import           Data.Either                    ( isRight )
-import qualified Data.ByteString               as B
+import CommandHelpers (TrackerDataFunction, forgetDirEntry, getDirEntry, getTrackerData,
+                       getTrackerDirectory, makePathAbsolute, modifyTrackerData, replaceDirEntry)
+import Control.Monad.Except (ExceptT, throwError)
+import Control.Monad.State.Lazy
+import qualified Data.ByteString as B
+import Data.Either (isRight)
+import Data.List (intercalate)
+import FileSystem (File (..), FileRevision (..), addRevisionsToTrackerData, emptyTrackerData,
+                   getLogFromTrackerData, getRevisionFromTrackerData, listFilesInDirEntry,
+                   removeRevisionFromTrackerData)
+import PathUtils (isChildOfPath, makeRelativeTo)
+import ShellData (CommandException (..), ShellState (..))
 
 initCmd :: ExceptT CommandException (State ShellState) String
 initCmd = do

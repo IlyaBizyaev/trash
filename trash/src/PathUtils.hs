@@ -9,10 +9,8 @@ module PathUtils
   )
 where
 
-import           System.FilePath.Posix
-import           Data.List                      ( isPrefixOf
-                                                , stripPrefix
-                                                )
+import Data.List (isPrefixOf, stripPrefix)
+import System.FilePath.Posix
 
 fullNormalize :: FilePath -> FilePath
 fullNormalize = normalise -- TODO: take .. into account

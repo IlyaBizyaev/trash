@@ -19,26 +19,14 @@ module CommandHelpers
   )
 where
 
-import           Control.Monad.Except           ( ExceptT
-                                                , throwError
-                                                , catchError
-                                                )
-import           Control.Monad.State.Lazy
-import           ShellData                      ( ShellState(..)
-                                                , CommandException(..)
-                                                )
-import           FileSystem                     ( Dir(..)
-                                                , TrackerData(..)
-                                                , DirEntry
-                                                , emptyDir
-                                                , calculateSize
-                                                , getDirEntryByFullPath
-                                                , removeFilesFromTrackerData
-                                                , listFilesInDirEntry
-                                                )
-import           System.FilePath.Posix
-import           PathUtils                      ( fullNormalize, makeRelativeTo )
-import qualified Data.Map.Strict               as Map
+import Control.Monad.Except (ExceptT, catchError, throwError)
+import Control.Monad.State.Lazy
+import qualified Data.Map.Strict as Map
+import FileSystem (Dir (..), DirEntry, TrackerData (..), calculateSize, emptyDir,
+                   getDirEntryByFullPath, listFilesInDirEntry, removeFilesFromTrackerData)
+import PathUtils (fullNormalize, makeRelativeTo)
+import ShellData (CommandException (..), ShellState (..))
+import System.FilePath.Posix
 
 makePathAbsolute
   :: FilePath -> ExceptT CommandException (State ShellState) FilePath
@@ -50,36 +38,36 @@ getTrackerDirectory :: ExceptT CommandException (State ShellState) FilePath
 getTrackerDirectory = do
   st <- lift get
   case sGetTrackerDir st of
-    Nothing -> throwError UnknownException
+    Nothing   -> throwError UnknownException
     Just path -> return path
 
 addDirEntry
   :: DirEntry -> FilePath -> ExceptT CommandException (State ShellState) ()
 addDirEntry dirent path = do
   st <- lift get
-  let oldDir = sGetRootDir st
+  let oldDir    = sGetRootDir st
   let optNewDir = addDirEntryAtPath oldDir dirent path
   case optNewDir of
-    Left e -> throwError e
+    Left  e   -> throwError e
     Right dir -> put st { sGetRootDir = dir }
 
 replaceDirEntry
   :: DirEntry -> FilePath -> ExceptT CommandException (State ShellState) ()
 replaceDirEntry dirent path = do
   st <- lift get
-  let oldDir = sGetRootDir st
+  let oldDir    = sGetRootDir st
   let optNewDir = replaceDirEntryAtPath oldDir dirent path
   case optNewDir of
-    Left e -> throwError e
+    Left  e   -> throwError e
     Right dir -> put st { sGetRootDir = dir }
 
 rmDirEntry :: FilePath -> ExceptT CommandException (State ShellState) ()
 rmDirEntry path = do
   st <- lift get
-  let oldDir = sGetRootDir st
+  let oldDir    = sGetRootDir st
   let optNewDir = rmDirEntryAtPath oldDir path
   case optNewDir of
-    Left e -> throwError e
+    Left  e   -> throwError e
     Right dir -> put st { sGetRootDir = dir }
 
 getDirEntry :: FilePath -> ExceptT CommandException (State ShellState) DirEntry
@@ -91,53 +79,55 @@ getDirEntry path = do
     Nothing -> throwError UnknownException
     Just de -> return de
 
-getTrackerData
-  :: ExceptT CommandException (State ShellState) TrackerData
+getTrackerData :: ExceptT CommandException (State ShellState) TrackerData
 getTrackerData = do
   trackerDir <- getTrackerDirectory
-  dirent <- getDirEntry trackerDir
+  dirent     <- getDirEntry trackerDir
   case dirent of
     Left  _   -> throwError UnknownException
     Right dir -> case dGetTrackerData dir of
       Nothing -> throwError UnknownException
       Just td -> return td
 
-modifyTrackerData :: TrackerDataFunction -> ExceptT CommandException (State ShellState) ()
+modifyTrackerData
+  :: TrackerDataFunction -> ExceptT CommandException (State ShellState) ()
 modifyTrackerData f = do
-  st       <- lift get
-  let rootDir = sGetRootDir st
+  st <- lift get
+  let rootDir       = sGetRootDir st
   let mbTrackerPath = sGetTrackerDir st
   case mbTrackerPath of
     Nothing -> throwError UnknownException
     Just td -> do
       let fResult = modifyTrackerDataAtPath rootDir td f
       case fResult of
-        Left e -> throwError e
+        Left  e   -> throwError e
         Right dir -> do
-          let newSt = st {sGetRootDir = dir}
+          let newSt = st { sGetRootDir = dir }
           put newSt
 
 forgetDirEntry :: FilePath -> ExceptT CommandException (State ShellState) ()
 forgetDirEntry path = do
   fullPath    <- makePathAbsolute path
-  dirent <- getDirEntry path
+  dirent      <- getDirEntry path
   trackerPath <- getTrackerDirectory
-  let relativePath  = makeRelativeTo trackerPath fullPath
+  let relativePath = makeRelativeTo trackerPath fullPath
   case relativePath of
-    Nothing -> throwError UnknownException
+    Nothing      -> throwError UnknownException
     Just relPath -> do
       let pathsToForget = listFilesInDirEntry relPath dirent
       modifyTrackerData (f pathsToForget)
-  where
-    f :: [FilePath] -> TrackerDataFunction
-    f _ Nothing = Left UnknownException
-    f paths (Just trackerData) = case removeFilesFromTrackerData trackerData paths of
+ where
+  f :: [FilePath] -> TrackerDataFunction
+  f _ Nothing = Left UnknownException
+  f paths (Just trackerData) =
+    case removeFilesFromTrackerData trackerData paths of
       Nothing -> Left UnknownException
       Just td -> return $ Just td
 
 forgetDirEntryIfTracked
   :: FilePath -> ExceptT CommandException (State ShellState) ()
-forgetDirEntryIfTracked path = catchError (forgetDirEntry path) (\_ -> return ())
+forgetDirEntryIfTracked path =
+  catchError (forgetDirEntry path) (\_ -> return ())
 
 type DirEntryFunction
   = Maybe DirEntry -> Either CommandException (Maybe DirEntry)
@@ -179,42 +169,40 @@ modifyDirEntryAtPath rootDir fullPath func = do
       Just de -> modifyDirEntryAtPathComponents de cs f
 
 modifyTrackerDataAtPath
-  :: Dir
-  -> FilePath
-  -> TrackerDataFunction
-  -> Either CommandException Dir
+  :: Dir -> FilePath -> TrackerDataFunction -> Either CommandException Dir
 modifyTrackerDataAtPath dir path f = do
   direntModification <- modifyDirEntryAtPath dir path newF
   case direntModification of
     Nothing -> Left UnknownException
-    Just d -> return d
+    Just d  -> return d
  where
   newF :: Maybe DirEntry -> Either CommandException (Maybe DirEntry)
-  newF Nothing = Left UnknownException
-  newF (Just (Left _)) = Left UnknownException
+  newF Nothing          = Left UnknownException
+  newF (Just (Left  _)) = Left UnknownException
   newF (Just (Right d)) = do
     let trackerData = dGetTrackerData d
     fResult <- f trackerData
-    return $ Just $ Right d {dGetTrackerData = fResult}
+    return $ Just $ Right d { dGetTrackerData = fResult }
 
 addDirEntryAtPath :: Dir -> DirEntry -> FilePath -> Either CommandException Dir
 addDirEntryAtPath rootDir dirEntry path = do
   call <- modifyDirEntryAtPath rootDir path f
   case call of
-    Nothing -> Left UnknownException
+    Nothing  -> Left UnknownException
     Just dir -> return dir
-  where
+ where
   f :: DirEntryFunction
   f Nothing = Right $ Just $ dirEntry
-  f _ = Left UnknownException
+  f _       = Left UnknownException
 
-replaceDirEntryAtPath :: Dir -> DirEntry -> FilePath -> Either CommandException Dir
+replaceDirEntryAtPath
+  :: Dir -> DirEntry -> FilePath -> Either CommandException Dir
 replaceDirEntryAtPath rootDir dirEntry path = do
   call <- modifyDirEntryAtPath rootDir path f
   case call of
-    Nothing -> Left UnknownException
+    Nothing  -> Left UnknownException
     Just dir -> return dir
-  where
+ where
   f :: DirEntryFunction
   f _ = Right $ Just $ dirEntry
 
@@ -222,10 +210,10 @@ rmDirEntryAtPath :: Dir -> FilePath -> Either CommandException Dir
 rmDirEntryAtPath rootDir path = do
   call <- modifyDirEntryAtPath rootDir path f
   case call of
-    Nothing -> return emptyDir
+    Nothing  -> return emptyDir
     Just dir -> return dir
-  where
+ where
   f :: DirEntryFunction
   f Nothing = Left UnknownException
-  f _ = Right Nothing
+  f _       = Right Nothing
 

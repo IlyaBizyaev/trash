@@ -9,40 +9,21 @@ module RealIO
   )
 where
 
-import           FileSystem                     ( Dir(..)
-                                                , File(..)
-                                                , DirEntry
-                                                , TrackerData(..)
-                                                , FileRevision(..)
-                                                , calculateSize
-                                                )
-import           System.Directory               ( doesPathExist
-                                                , doesDirectoryExist
-                                                , pathIsSymbolicLink
-                                                , getPermissions
-                                                , getModificationTime
-                                                , listDirectory
-                                                , getFileSize
-                                                , doesFileExist
-                                                , setModificationTime
-                                                , setPermissions
-                                                , createDirectoryIfMissing
-                                                , removePathForcibly
-                                                , createDirectory
-                                                )
-import           System.FilePath.Posix
-import           Control.Exception              ( throwIO )
-import           Control.Monad                  ( when )
-import qualified Data.Map.Strict               as Map
-import qualified Data.ByteString               as B
-import qualified Data.ByteString.Char8         as BC
-import           Data.List                      ( elemIndex
-                                                , partition
-                                                , (\\)
-                                                , intercalate
-                                                )
-import           Data.Maybe                     ( fromMaybe )
-import           Data.Foldable                  ( mapM_ )
+import Control.Exception (throwIO)
+import Control.Monad (when)
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Char8 as BC
+import Data.Foldable (mapM_)
+import Data.List (elemIndex, intercalate, partition, (\\))
+import qualified Data.Map.Strict as Map
+import Data.Maybe (fromMaybe)
+import FileSystem (Dir (..), DirEntry, File (..), FileRevision (..), TrackerData (..),
+                   calculateSize)
+import System.Directory (createDirectory, createDirectoryIfMissing, doesDirectoryExist,
+                         doesFileExist, doesPathExist, getFileSize, getModificationTime,
+                         getPermissions, listDirectory, pathIsSymbolicLink, removePathForcibly,
+                         setModificationTime, setPermissions)
+import System.FilePath.Posix
 
 trackerSubdirName :: String
 trackerSubdirName = ".tracker"
@@ -199,7 +180,7 @@ writeDirEntryToFilesystem path (Right dir) = do
       let summaryList = intercalate "\n" $ map
             (\(ver, summ) -> show ver ++ ' ' : summ)
             (Map.toList revSummaryMap)
-      let indexContent = show lastVersion ++ '\n':summaryList
+      let indexContent      = show lastVersion ++ '\n' : summaryList
       let trackerSubdirPath = path </> trackerSubdirName
       removePathForcibly trackerSubdirPath
       createDirectory trackerSubdirPath
@@ -208,7 +189,9 @@ writeDirEntryToFilesystem path (Right dir) = do
       let revList = Map.toList revisions
       let revPairToRevList (p, m) = (p, Map.toList m)
       let revListToTriples (p, l) = zip (repeat p) l
-      let tripleToFilename (p, (v, rev)) = ((trackerSubdirPath </> p) ++ '_':(show v), frGetContent rev)
-      let revPairToFilename = map tripleToFilename . revListToTriples . revPairToRevList
+      let tripleToFilename (p, (v, rev)) =
+            ((trackerSubdirPath </> p) ++ '_' : (show v), frGetContent rev)
+      let revPairToFilename =
+            map tripleToFilename . revListToTriples . revPairToRevList
       let revFileList = concatMap revPairToFilename revList
       mapM_ (uncurry B.writeFile) revFileList

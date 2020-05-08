@@ -1,12 +1,17 @@
 -- SPDX-FileCopyrightText: 2020 Ilya Bizyaev <me@ilyabiz.com>
 -- SPDX-License-Identifier: GPL-3.0+
 
-module Parsers (CliOptions(..), cliOptionsInfo, parseCommand) where
+module Parsers
+  ( CliOptions(..)
+  , cliOptionsInfo
+  , parseCommand
+  )
+where
 
-import           Options.Applicative
-import           Data.Semigroup                 ( (<>) )
-import           Data.Char                      ( isSpace )
-import ShellData (ShellCommand(..), TrackerSubcommand(..), shellVersionAndCodename)
+import Data.Char (isSpace)
+import Data.Semigroup ((<>))
+import Options.Applicative
+import ShellData (ShellCommand (..), TrackerSubcommand (..), shellVersionAndCodename)
 
 data CliOptions = CliOptions
   { gui     :: Bool }
@@ -135,12 +140,12 @@ trackerSubcommandParser = hsubparser
   <> command
        "add"
        (info
-         (AddCommand <$> strArgument
-           (metavar "FILE" <> help
-             "Name of file or directory to add to check in to control"
-           )
-           <*> strArgument
-               (metavar "SUMMARY" <> help "Summary of the change")
+         (   AddCommand
+         <$> strArgument
+               (metavar "FILE" <> help
+                 "Name of file or directory to add to check in to control"
+               )
+         <*> strArgument (metavar "SUMMARY" <> help "Summary of the change")
          )
          (progDesc "Add file or directory as revision to Tracker")
        )
@@ -170,16 +175,15 @@ trackerSubcommandParser = hsubparser
   <> command
        "forget-rev"
        (info
-         (ForgetRevCommand <$> strArgument
-           (  metavar "FILE"
-           <> help "Name of file or directory to delete a revision of"
-           )
-           <*> argument
-               auto
-               (metavar "REV" <> help "Revision number to delete")
+         (   ForgetRevCommand
+         <$> strArgument
+               (metavar "FILE" <> help
+                 "Name of file or directory to delete a revision of"
+               )
+         <*> argument auto
+                      (metavar "REV" <> help "Revision number to delete")
          )
-         (progDesc "Delete specific revision of a tracked file"
-         )
+         (progDesc "Delete specific revision of a tracked file")
        )
   <> command
        "checkout"
@@ -203,7 +207,10 @@ trackerSubcommandParser = hsubparser
          <$> strArgument (metavar "FILE" <> help "Name of file to merge")
          <*> argument auto (metavar "REV" <> help "First revision number")
          <*> argument auto (metavar "REV" <> help "Second revision number")
-         <*> strArgument (metavar "STRATEGY" <> help "Merge strategy: left, right or both")
+         <*> strArgument
+               (  metavar "STRATEGY"
+               <> help "Merge strategy: left, right or both"
+               )
          )
          (progDesc "Initiate merging of 2 file revisions")
        )

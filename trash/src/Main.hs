@@ -3,13 +3,11 @@
 
 module Main where
 
-import           Options.Applicative            ( execParser )
+import Options.Applicative (execParser)
 
-import           Parsers                        ( CliOptions(..)
-                                                , cliOptionsInfo
-                                                )
-import           Shell                          ( runREPL )
-import           Gui                            ( runGUI )
+import Gui (runGUI)
+import Parsers (CliOptions (..), cliOptionsInfo)
+import Shell (runREPL)
 
 main :: IO ()
 main = do

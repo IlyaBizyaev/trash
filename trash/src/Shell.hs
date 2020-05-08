@@ -7,51 +7,18 @@ module Shell
   , runREPL
   )
 where
-import           FileSystem                     ( getDirEntryByFullPath
-                                                , isDirTracked
-                                                )
-import           RealIO                         ( readDirEntryFromFilesystem
-                                                , writeDirEntryToFilesystem
-                                                )
-import           Control.Monad.Except           ( ExceptT
-                                                , runExceptT
-                                                , throwError
-                                                )
-import           Control.Monad.State.Lazy
-import           System.IO                      ( hFlush
-                                                , stdout
-                                                , hPutStrLn
-                                                , stderr
-                                                , hPrint
-                                                )
-import           System.FilePath.Posix
-import           Parsers                        ( parseCommand )
-import           ShellData                      ( ShellState(..)
-                                                , CommandException(..)
-                                                , ShellCommand(..)
-                                                , TrackerSubcommand(..)
-                                                )
-import           CommandHelpers                 ( makePathAbsolute
-                                                , getDirEntry
-                                                )
-import           FileManager                    ( lsCmd
-                                                , touchCmd
-                                                , mkdirCmd
-                                                , catCmd
-                                                , rmCmd
-                                                , writeCmd
-                                                , findCmd
-                                                , statCmd
-                                                )
-import           Tracker                        ( initCmd
-                                                , addCmd
-                                                , logCmd
-                                                , forgetCmd
-                                                , forgetRevCmd
-                                                , checkoutCmd
-                                                , mergeCmd
-                                                )
-import qualified System.Directory              as SD
+import CommandHelpers (getDirEntry, makePathAbsolute)
+import Control.Monad.Except (ExceptT, runExceptT, throwError)
+import Control.Monad.State.Lazy
+import FileManager (catCmd, findCmd, lsCmd, mkdirCmd, rmCmd, statCmd, touchCmd, writeCmd)
+import FileSystem (getDirEntryByFullPath, isDirTracked)
+import Parsers (parseCommand)
+import RealIO (readDirEntryFromFilesystem, writeDirEntryToFilesystem)
+import ShellData (CommandException (..), ShellCommand (..), ShellState (..), TrackerSubcommand (..))
+import qualified System.Directory as SD
+import System.FilePath.Posix
+import System.IO (hFlush, hPrint, hPutStrLn, stderr, stdout)
+import Tracker (addCmd, checkoutCmd, forgetCmd, forgetRevCmd, initCmd, logCmd, mergeCmd)
 
 runREPL :: IO ()
 runREPL = do
@@ -100,7 +67,7 @@ execNextCommand (cmd : cmds) st = do
         execCommand (FindCommand    s      ) = findCmd s
         execCommand (StatCommand    path   ) = statCmd path
         execCommand (TrackerCommand subc   ) = execTrackerSubcommand subc
-        execCommand _             = undefined
+        execCommand _                        = undefined
 
         execTrackerSubcommand InitCommand               = initCmd
         execTrackerSubcommand (AddCommand path summary) = addCmd path summary
@@ -125,8 +92,8 @@ updatePwd newPwd st = st { sGetPwd = newPwd, sGetTrackerDir = newTrackerDir } wh
   findClosestTrackedAncestor []         = Nothing
   findClosestTrackedAncestor x@(_ : xs) = if isSubdirAtPathTracked curPath
     then Just curPath
-    else findClosestTrackedAncestor xs   where
-    curPath       = (joinPath . reverse) x
+    else findClosestTrackedAncestor xs
+    where curPath = (joinPath . reverse) x
   isSubdirAtPathTracked p = case getDirEntryByFullPath rootDir p of
     Just (Right dir) -> isDirTracked dir
     _                -> False

@@ -13,34 +13,18 @@ module FileManager
   )
 where
 
-import           Control.Monad.Except           ( ExceptT
-                                                , throwError
-                                                )
-import           Control.Monad.State.Lazy
-import qualified Data.ByteString.Char8         as BC
-import           FileSystem                     ( Dir(..)
-                                                , File(..)
-                                                , emptyDir
-                                                , findDirentsBySubstring
-                                                , showOptionalTime
-                                                , getFileMimeTypeByName
-                                                , buildFileWithContent
-                                                , listDirEntries
-                                                , getChildCount
-                                                )
-import           ShellData                      ( ShellState(..)
-                                                , CommandException(..)
-                                                )
-import           System.FilePath.Posix
-import           Data.List                      ( intercalate )
-import           CommandHelpers                 ( getDirEntry
-                                                , addDirEntry
-                                                , rmDirEntry
-                                                , forgetDirEntryIfTracked
-                                                , makePathAbsolute
-                                                )
-import           PathUtils                      ( lastSegment )
+import CommandHelpers (addDirEntry, forgetDirEntryIfTracked, getDirEntry, makePathAbsolute,
+                       rmDirEntry)
+import Control.Monad.Except (ExceptT, throwError)
+import Control.Monad.State.Lazy
+import qualified Data.ByteString.Char8 as BC
+import Data.List (intercalate)
+import FileSystem (Dir (..), File (..), buildFileWithContent, emptyDir, findDirentsBySubstring,
+                   getChildCount, getFileMimeTypeByName, listDirEntries, showOptionalTime)
+import PathUtils (lastSegment)
 import RealIO (trackerSubdirName)
+import ShellData (CommandException (..), ShellState (..))
+import System.FilePath.Posix
 
 lsCmd :: FilePath -> ExceptT CommandException (State ShellState) String
 lsCmd path = do
@@ -54,7 +38,7 @@ touchCmd path = writeCmd path ""
 
 mkdirCmd :: FilePath -> ExceptT CommandException (State ShellState) String
 mkdirCmd path = do
-  fullPath    <- makePathAbsolute path
+  fullPath <- makePathAbsolute path
   when (lastSegment fullPath == trackerSubdirName) (throwError UnknownException)
   let direntToWrite = Right emptyDir
   addDirEntry direntToWrite fullPath
@@ -69,7 +53,7 @@ catCmd path = do
 
 rmCmd :: FilePath -> ExceptT CommandException (State ShellState) String
 rmCmd path = do
-  fullPath    <- makePathAbsolute path
+  fullPath <- makePathAbsolute path
   rmDirEntry fullPath
   forgetDirEntryIfTracked fullPath
   return ""
@@ -77,7 +61,7 @@ rmCmd path = do
 writeCmd
   :: FilePath -> String -> ExceptT CommandException (State ShellState) String
 writeCmd path text = do
-  fullPath    <- makePathAbsolute path
+  fullPath <- makePathAbsolute path
   when (lastSegment fullPath == trackerSubdirName) (throwError UnknownException)
   let direntToWrite = Left $ buildFileWithContent text
   addDirEntry direntToWrite path
@@ -90,8 +74,8 @@ findCmd s = do
 
 statCmd :: FilePath -> ExceptT CommandException (State ShellState) String
 statCmd path = do
-  fullPath    <- makePathAbsolute path
-  let pathLine       = "Path: " ++ fullPath
+  fullPath <- makePathAbsolute path
+  let pathLine = "Path: " ++ fullPath
   dirent <- getDirEntry path
   return $ intercalate "\n" $ case dirent of
     Left file -> [pathLine, permissionsLine, sizeLine, modLine, typeLine]     where

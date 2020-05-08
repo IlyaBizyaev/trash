@@ -10,7 +10,7 @@ module ShellData
   )
 where
 
-import           FileSystem                     ( Dir(..) )
+import FileSystem (Dir (..))
 
 shellVersionAndCodename :: String
 shellVersionAndCodename = "v0.1.0 tragic speshka"
@@ -38,8 +38,8 @@ data TrackerSubcommand = InitCommand
                        | MergeCommand FilePath Integer Integer String deriving (Eq, Show)
 
 data ShellState = ShellState {
-  sGetRootDir :: Dir,
-  sGetPwd :: FilePath,
+  sGetRootDir    :: Dir,
+  sGetPwd        :: FilePath,
   sGetTrackerDir :: Maybe FilePath
 }
 
