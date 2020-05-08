@@ -36,7 +36,7 @@ initCmd = do
 
 addCmd :: FilePath -> ExceptT CommandException (State ShellState) String
 addCmd path = undefined
--- use: addRevisionsToTrackerData
+-- use: addRevisionsToTrackerData, modifyTrackerData
 -- ensure vcs dir is not Nothing
 -- get full path of the target path
 -- verify full path is a child/eq of tracker path
@@ -77,7 +77,7 @@ forgetCmd path = do
 forgetRevCmd
   :: FilePath -> Integer -> ExceptT CommandException (State ShellState) String
 forgetRevCmd path rev = undefined
--- use: removeRevisionFromTrackerData
+-- use: removeRevisionFromTrackerData, modifyTrackerData
 -- function on state's tracker dir data:
 -- * if no tracker dir, fail with error
 -- * if have tracker dir but not file's revision log in it, fail with error

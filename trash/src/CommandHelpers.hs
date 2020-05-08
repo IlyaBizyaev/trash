@@ -63,17 +63,19 @@ addDirEntry
 addDirEntry dirent path = do
   st <- lift get
   let oldDir = sGetRootDir st
-  let newDir = addDirEntryAtPath oldDir dirent path
-  let newSt  = st { sGetRootDir = newDir }
-  put newSt
+  let optNewDir = addDirEntryAtPath oldDir dirent path
+  case optNewDir of
+    Left e -> throwError e
+    Right dir -> put st { sGetRootDir = dir }
 
 rmDirEntry :: FilePath -> ExceptT CommandException (State ShellState) ()
 rmDirEntry path = do
   st <- lift get
   let oldDir = sGetRootDir st
-  let newDir = rmDirEntryAtPath oldDir path
-  let newSt  = st { sGetRootDir = newDir }
-  put newSt
+  let optNewDir = rmDirEntryAtPath oldDir path
+  case optNewDir of
+    Left e -> throwError e
+    Right dir -> put st { sGetRootDir = dir }
 
 getDirEntry :: FilePath -> ExceptT CommandException (State ShellState) DirEntry
 getDirEntry path = do
@@ -111,7 +113,7 @@ modifyTrackerData f = do
 -- use modifyTrackerDataAtPath
 
 forgetDirEntry :: FilePath -> ExceptT CommandException (State ShellState) ()
-forgetDirEntry = undefined -- use removeFilesFromTrackerData, mb listFilesInDirEntry, mb modifyTrackerData
+forgetDirEntry = undefined -- use removeFilesFromTrackerData, mb listFilesInDirEntry, modifyTrackerData
 
 forgetDirEntryIfTracked
   :: FilePath -> ExceptT CommandException (State ShellState) ()
@@ -175,19 +177,25 @@ modifyTrackerDataAtPath dir path f = do
     fResult <- f trackerData
     return $ Just $ Right d {dGetTrackerData = fResult}
 
+addDirEntryAtPath :: Dir -> DirEntry -> FilePath -> Either CommandException Dir
+addDirEntryAtPath rootDir dirEntry path = do
+  call <- modifyDirEntryAtPath rootDir path f
+  case call of
+    Nothing -> Left UnknownException
+    Just dir -> return dir
+  where
+  f :: Maybe DirEntry -> Either CommandException (Maybe DirEntry)
+  f Nothing = Right $ Just $ dirEntry
+  f _ = Left UnknownException
 
--- addDirEntryAtPath: use modifyDirEntryAtPath
--- rmDirEntryAtPath: use modifyDirEntryAtPath
-addDirEntryAtPath :: Dir -> DirEntry -> FilePath -> Dir
-addDirEntryAtPath = undefined
--- terrible note: this has to update sizes of all parent dirs
+rmDirEntryAtPath :: Dir -> FilePath -> Either CommandException Dir
+rmDirEntryAtPath rootDir path = do
+  call <- modifyDirEntryAtPath rootDir path f
+  case call of
+    Nothing -> return emptyDir
+    Just dir -> return dir
+  where
+  f :: Maybe DirEntry -> Either CommandException (Maybe DirEntry)
+  f Nothing = Left UnknownException
+  f _ = Right Nothing
 
-rmDirEntryAtPath :: Dir -> FilePath -> Dir
-rmDirEntryAtPath = undefined
--- and this, too
--- and even worse, both of these can fail, so should mb return Maybe
-
--- now, consider also File -> File and Dir -> Dir; consider if they worked for
--- <nothing> -> de and de -> <nothing> cases; doesn't that describe most of your shell code?!
--- now note how DirEnt -> DirEnt should also be recalculating file and dir sizes
--- and now consider f :: Maybe <f/d/de> ->; would that help?
