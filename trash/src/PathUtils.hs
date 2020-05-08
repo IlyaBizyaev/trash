@@ -15,7 +15,7 @@ import           Data.List                      ( isPrefixOf
                                                 )
 
 fullNormalize :: FilePath -> FilePath
-fullNormalize = normalise -- TODO: ..
+fullNormalize = normalise -- TODO: take .. into account
 
 makeRelativeTo :: FilePath -> FilePath -> Maybe FilePath
 makeRelativeTo parentPath absolutePath = do

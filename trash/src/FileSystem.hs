@@ -12,7 +12,6 @@ module FileSystem
   , getDirEntryByFullPath
   , buildFileWithContent
   , emptyDir
-  , isFileTrackedInDir
   , findDirentsBySubstring
   , getChildCount
   , getFileMimeTypeByName
@@ -30,6 +29,8 @@ where
 
 import           System.Directory               ( Permissions
                                                 , emptyPermissions
+                                                , readable
+                                                , writable
                                                 )
 import           Data.Time.Clock                ( UTCTime )
 import qualified Data.Map.Strict               as Map
@@ -51,7 +52,9 @@ instance Show FileRevision where
     summaryLine = "Summary: " ++ frGetName revision
     contentBlock = BC.unpack $ frGetContent revision
 
--- TODO: how to reliably set permissions for the file that we are going to create? Do we know them in advance?
+defaultPermissions :: Permissions
+defaultPermissions = emptyPermissions {readable = True, writable = True}
+
 data File = File {
   fGetPermissions :: Permissions,
   fGetModificationTime :: Maybe UTCTime,
@@ -78,7 +81,6 @@ addRevisionsToTrackerData trackerData toAdd = TrackerData
     Nothing             -> Map.insert path (Map.singleton newLast rev) revsMap
     Just oldRevsForPath -> Map.insert path newRevsForPath revsMap
       where newRevsForPath = Map.insert newLast rev oldRevsForPath
-
 
 getRevisionFromTrackerData
   :: TrackerData -> FilePath -> Integer -> Maybe FileRevision
@@ -115,7 +117,6 @@ removeFilesFromTrackerData trackerData paths = foldl removeFile
     let newRevisions = Map.delete p oldRevisions
     return $ td { tGetRevisions = newRevisions }
 
-
 data Dir = Dir {
   dGetTrackerData :: Maybe TrackerData,
   dGetPermissions :: Permissions,
@@ -125,7 +126,7 @@ data Dir = Dir {
 
 emptyDir :: Dir
 emptyDir = Dir { dGetTrackerData = Nothing
-               , dGetPermissions = emptyPermissions
+               , dGetPermissions = defaultPermissions
                , dGetSize        = 0
                , dGetChildren    = Map.empty
                }
@@ -145,7 +146,6 @@ buildFileWithContent content = File { fGetPermissions      = defaultPermissions
  where
   byteStringContent  = BC.pack content
   byteStringSize     = (toInteger . B.length) byteStringContent
-  defaultPermissions = emptyPermissions
 
 isDirTracked :: Dir -> Bool
 isDirTracked dir = case dGetTrackerData dir of
@@ -174,9 +174,6 @@ getDirEntryByFullPath rootDir fullPath = getDirEntryByPathComponents
     case childEntry of
       Left  f -> if null cs then return (Left f) else Nothing
       Right d -> getDirEntryByPathComponents d cs
-
-isFileTrackedInDir :: Dir -> FilePath -> Bool
-isFileTrackedInDir = undefined
 
 findDirentsBySubstring :: String -> DirEntry -> [FilePath]
 findDirentsBySubstring query dirent = case dirent of

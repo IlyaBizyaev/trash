@@ -4,4 +4,4 @@
 module Gui (runGUI) where
 
 runGUI :: IO ()
-runGUI = putStrLn "Unimplemented"
+runGUI = putStrLn "GUI is not yet implemented"

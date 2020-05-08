@@ -6,10 +6,14 @@ module ShellData
   , TrackerSubcommand(..)
   , ShellState(..)
   , CommandException(..)
+  , shellVersionAndCodename
   )
 where
 
 import           FileSystem                     ( Dir(..) )
+
+shellVersionAndCodename :: String
+shellVersionAndCodename = "v0.1.0 tragic speshka"
 
 data ShellCommand = EmptyCommand
                   | HelpCommand

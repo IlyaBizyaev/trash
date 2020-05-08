@@ -51,7 +51,6 @@ import           Tracker                        ( initCmd
                                                 , checkoutCmd
                                                 , mergeCmd
                                                 )
-import           PathUtils                      ( fullNormalize )
 import qualified System.Directory              as SD
 
 runREPL :: IO ()
@@ -90,8 +89,6 @@ execNextCommand (cmd : cmds) st = do
             printPrompt (sGetPwd newSt)
         execNextCommand cmds newSt
        where
-        execCommand EmptyCommand             = undefined
-        execCommand ExitCommand              = undefined
         execCommand HelpCommand              = helpCmd
         execCommand (LsCommand    path     ) = lsCmd path
         execCommand (CdCommand    path     ) = cdCmd path
@@ -103,6 +100,7 @@ execNextCommand (cmd : cmds) st = do
         execCommand (FindCommand    s      ) = findCmd s
         execCommand (StatCommand    path   ) = statCmd path
         execCommand (TrackerCommand subc   ) = execTrackerSubcommand subc
+        execCommand _             = undefined
 
         execTrackerSubcommand InitCommand               = initCmd
         execTrackerSubcommand (AddCommand path summary) = addCmd path summary
@@ -116,27 +114,22 @@ execNextCommand (cmd : cmds) st = do
 
 printPrompt :: FilePath -> IO ()
 printPrompt pwd = do
-  putStr $ pwd ++ "> "
+  putStr $ pwd ++ " > "
   hFlush stdout
 
 updatePwd :: FilePath -> ShellState -> ShellState
-updatePwd path st = st { sGetPwd = newPwd, sGetTrackerDir = newTrackerDir } where
+updatePwd newPwd st = st { sGetPwd = newPwd, sGetTrackerDir = newTrackerDir } where
   rootDir          = sGetRootDir st
-  oldPwd           = sGetPwd st
-  newPwd           = oldPwd </> fullNormalize path
   newPwdComponents = (reverse . splitDirectories) newPwd
   newTrackerDir    = findClosestTrackedAncestor newPwdComponents
   findClosestTrackedAncestor []         = Nothing
-  findClosestTrackedAncestor x@(_ : xs) = if curPathTracked
+  findClosestTrackedAncestor x@(_ : xs) = if isSubdirAtPathTracked curPath
     then Just curPath
-    else ancestorCheck   where
-    curPath        = (joinPath . reverse) x
-    curPathTracked = isSubdirAtPathTracked curPath
-    ancestorCheck  = findClosestTrackedAncestor xs
-  isSubdirAtPathTracked p = case getDirEntryByFullPath rootDir p of -- TODO: suspicious direct call
-    Nothing          -> False
-    Just (Left  _  ) -> False
+    else findClosestTrackedAncestor xs   where
+    curPath       = (joinPath . reverse) x
+  isSubdirAtPathTracked p = case getDirEntryByFullPath rootDir p of
     Just (Right dir) -> isDirTracked dir
+    _                -> False
 
 helpCmd :: ExceptT CommandException (State ShellState) String
 helpCmd = return

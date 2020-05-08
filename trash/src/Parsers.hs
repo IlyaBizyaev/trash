@@ -6,10 +6,7 @@ module Parsers (CliOptions(..), cliOptionsInfo, parseCommand) where
 import           Options.Applicative
 import           Data.Semigroup                 ( (<>) )
 import           Data.Char                      ( isSpace )
-import           Data.Version                   ( showVersion )
--- TODO: doesn't seem to work
-import           Paths_trash                    ( version )
-import ShellData (ShellCommand(..), TrackerSubcommand(..))
+import ShellData (ShellCommand(..), TrackerSubcommand(..), shellVersionAndCodename)
 
 data CliOptions = CliOptions
   { gui     :: Bool }
@@ -21,7 +18,7 @@ cliOptionsParser =
 cliOptionsInfo :: ParserInfo CliOptions
 cliOptionsInfo = info
   (   helper
-  <*> (infoOption (concat ["trash ", showVersion version])
+  <*> (infoOption shellVersionAndCodename
                   (long "version" <> short 'v' <> help "Show version")
       )
   <*> cliOptionsParser
@@ -57,7 +54,7 @@ shellCommandParser = hsubparser
          (TouchCommand <$> strArgument
            (metavar "FILE" <> help "Filename of file to create")
          )
-         (progDesc "Create file with specified filename") -- TODO: behave like GNU touch?
+         (progDesc "Create file with specified name")
        )
   <> command
        "mkdir"

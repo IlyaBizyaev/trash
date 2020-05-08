@@ -29,7 +29,6 @@ executable trash
                      , Tracker
                      , FileSystem
                      , RealIO
-                     , Paths_trash
   ghc-options:         -Wall -Werror
   build-depends:       base >=4.9 && < 5
                      , mtl
