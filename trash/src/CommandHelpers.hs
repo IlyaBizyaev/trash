@@ -31,12 +31,14 @@ import FileSystem (Dir (..), DirEntry, TrackerData (..), calculateSize, emptyDir
 import PathUtils (fullNormalize, makeRelativeTo)
 import ShellData (CommandException (..), ShellState (..))
 
+-- | Use State's PWD to make given path absolute.
 makePathAbsolute
   :: FilePath -> ExceptT CommandException (State ShellState) FilePath
 makePathAbsolute path = do
   st <- lift get
   return $ (sGetPwd st) </> fullNormalize path
 
+-- | Get path of current tracker directory, or fail if it's not available.
 getTrackerDirectory :: ExceptT CommandException (State ShellState) FilePath
 getTrackerDirectory = do
   st <- lift get
@@ -44,6 +46,7 @@ getTrackerDirectory = do
     Nothing   -> throwError LocationNotTracked
     Just path -> return path
 
+-- | Reevaluate current tracker dir by searching up to FS bounds.
 updateTrackerPath :: ShellState -> ShellState
 updateTrackerPath st = st { sGetTrackerDir = newTrackerDir } where
   rootDir          = sGetRootDir st
@@ -59,6 +62,7 @@ updateTrackerPath st = st { sGetTrackerDir = newTrackerDir } where
     Just (Right dir) -> isDirTracked dir
     _                -> False
 
+-- | Add dirent to the FS at specified path, if not present.
 addDirEntry
   :: DirEntry -> FilePath -> ExceptT CommandException (State ShellState) ()
 addDirEntry dirent path = do
@@ -69,6 +73,7 @@ addDirEntry dirent path = do
     Left  e   -> throwError e
     Right dir -> put st { sGetRootDir = dir }
 
+-- | Add dirent to the FS at specified path, replace if exists.
 replaceDirEntry
   :: DirEntry -> FilePath -> ExceptT CommandException (State ShellState) ()
 replaceDirEntry dirent path = do
@@ -79,6 +84,7 @@ replaceDirEntry dirent path = do
     Left  e   -> throwError e
     Right dir -> put st { sGetRootDir = dir }
 
+-- | Remove dirent from the FS at specified path, if present.
 rmDirEntry :: FilePath -> ExceptT CommandException (State ShellState) ()
 rmDirEntry path = do
   st <- lift get
@@ -88,6 +94,7 @@ rmDirEntry path = do
     Left  e   -> throwError e
     Right dir -> put st { sGetRootDir = dir }
 
+-- | Get dirent from the FS at specified path, if present.
 getDirEntry :: FilePath -> ExceptT CommandException (State ShellState) DirEntry
 getDirEntry path = do
   fullPath <- makePathAbsolute path
@@ -97,6 +104,7 @@ getDirEntry path = do
     Nothing -> throwError ObjectNotFound
     Just de -> return de
 
+-- | Get tracker data if PWD belongs to a tracked location.
 getTrackerData :: ExceptT CommandException (State ShellState) TrackerData
 getTrackerData = do
   trackerDir <- getTrackerDirectory
@@ -107,6 +115,8 @@ getTrackerData = do
       Nothing -> throwError LocationNotTracked
       Just td -> return td
 
+-- | Use a helper function to modify tracker data if PWD belongs to a
+-- tracked location.
 modifyTrackerData
   :: TrackerDataFunction -> ExceptT CommandException (State ShellState) ()
 modifyTrackerData f = do
@@ -123,6 +133,7 @@ modifyTrackerData f = do
           let newSt = st { sGetRootDir = dir }
           put newSt
 
+-- | Remove dirent revisions from tracker metadata, if present.
 forgetDirEntry :: FilePath -> ExceptT CommandException (State ShellState) ()
 forgetDirEntry path = do
   fullPath    <- makePathAbsolute path
@@ -142,17 +153,21 @@ forgetDirEntry path = do
       Nothing -> Left FileIsNotInTrackerData
       Just td -> return $ Just td
 
+-- | Remove dirent revisions from tracker metadata, ignore if missing.
 forgetDirEntryIfTracked
   :: FilePath -> ExceptT CommandException (State ShellState) ()
 forgetDirEntryIfTracked path =
   catchError (forgetDirEntry path) (\_ -> return ())
 
+-- | Helper function type for dirent modification.
 type DirEntryFunction
   = Maybe DirEntry -> Either CommandException (Maybe DirEntry)
 
+-- | Helper function type for tracker data modification.
 type TrackerDataFunction
   = Maybe TrackerData -> Either CommandException (Maybe TrackerData)
 
+-- | Use a helper function to modify dirent at specified path.
 modifyDirEntryAtPath
   :: Dir -> FilePath -> DirEntryFunction -> Either CommandException (Maybe Dir)
 modifyDirEntryAtPath rootDir fullPath func = do
@@ -186,6 +201,7 @@ modifyDirEntryAtPath rootDir fullPath func = do
       Nothing -> if null cs then f Nothing else Left ObjectNotFound
       Just de -> modifyDirEntryAtPathComponents de cs f
 
+-- | Use a helper function to modify tracker data at specified path.
 modifyTrackerDataAtPath
   :: Dir -> FilePath -> TrackerDataFunction -> Either CommandException Dir
 modifyTrackerDataAtPath dir path f = do
@@ -202,6 +218,7 @@ modifyTrackerDataAtPath dir path f = do
     fResult <- f trackerData
     return $ Just $ Right d { dGetTrackerData = fResult }
 
+-- | Add new dirent to specified path of the given directory.
 addDirEntryAtPath :: Dir -> DirEntry -> FilePath -> Either CommandException Dir
 addDirEntryAtPath rootDir dirEntry path = do
   call <- modifyDirEntryAtPath rootDir path f
@@ -213,6 +230,7 @@ addDirEntryAtPath rootDir dirEntry path = do
   f Nothing = Right $ Just $ dirEntry
   f _       = Left ObjectAlreadyExists
 
+-- | Replace dirent at specified path of the given directory, add if missing.
 replaceDirEntryAtPath
   :: Dir -> DirEntry -> FilePath -> Either CommandException Dir
 replaceDirEntryAtPath rootDir dirEntry path = do
@@ -224,6 +242,7 @@ replaceDirEntryAtPath rootDir dirEntry path = do
   f :: DirEntryFunction
   f _ = Right $ Just $ dirEntry
 
+-- | Remove dirent from specified path of the given directory, if present.
 rmDirEntryAtPath :: Dir -> FilePath -> Either CommandException Dir
 rmDirEntryAtPath rootDir path = do
   call <- modifyDirEntryAtPath rootDir path f

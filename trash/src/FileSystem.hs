@@ -40,6 +40,7 @@ import System.FilePath.Posix
 
 import PathUtils (fullNormalize)
 
+-- | Data type to store committed file revisions.
 data FileRevision = FileRevision {
   frGetName    :: String,
   frGetContent :: B.ByteString
@@ -50,15 +51,18 @@ instance Show FileRevision where
     summaryLine  = "Summary: " ++ frGetName revision
     contentBlock = BC.unpack $ frGetContent revision
 
+-- | Default permissions for files and directories (rw-).
 defaultPermissions :: Permissions
 defaultPermissions = emptyPermissions { readable = True, writable = True }
 
+-- | Pretty-print permissions.
 showPermissions :: Permissions -> String
 showPermissions p = pRead : pWrite : [pExecute] where
   pRead    = if readable p then 'r' else '-'
   pWrite   = if writable p then 'w' else '-'
   pExecute = if (executable p || searchable p) then 'x' else '-'
 
+-- | Data type for files in memory.
 data File = File {
   fGetPermissions      :: Permissions,
   fGetModificationTime :: Maybe UTCTime,
@@ -66,11 +70,13 @@ data File = File {
   fGetContent          :: B.ByteString
 } deriving (Show)
 
+-- | Data type for per-directory tracker data.
 data TrackerData = TrackerData {
   tGetLastVersion :: Integer,
   tGetRevisions   :: Map.Map String (Map.Map Integer FileRevision)
 } deriving Show
 
+-- | Add specified revisions to tracker data.
 addRevisionsToTrackerData
   :: TrackerData -> [(FilePath, FileRevision)] -> TrackerData
 addRevisionsToTrackerData trackerData toAdd = TrackerData
@@ -86,12 +92,14 @@ addRevisionsToTrackerData trackerData toAdd = TrackerData
     Just oldRevsForPath -> Map.insert path newRevsForPath revsMap
       where newRevsForPath = Map.insert newLast rev oldRevsForPath
 
+-- | Get revision from tracker data by path and version number.
 getRevisionFromTrackerData
   :: TrackerData -> FilePath -> Integer -> Maybe FileRevision
 getRevisionFromTrackerData td path rev = do
   numToRevMap <- Map.lookup path (tGetRevisions td)
   Map.lookup rev numToRevMap
 
+-- | Present revisions of the specified files as a loggable structure.
 getLogFromTrackerData
   :: TrackerData -> [FilePath] -> Maybe [(Integer, [FileRevision])]
 getLogFromTrackerData td paths = do
@@ -100,6 +108,7 @@ getLogFromTrackerData td paths = do
   let numToRevListMap  = foldl (Map.unionWith (++)) Map.empty numToRevListMaps
   return $ Map.toAscList numToRevListMap
 
+-- | Remove specified revisions from tracker data.
 removeRevisionFromTrackerData
   :: TrackerData -> FilePath -> Integer -> Maybe TrackerData
 removeRevisionFromTrackerData td path rev = do
@@ -110,6 +119,7 @@ removeRevisionFromTrackerData td path rev = do
   let newRevisions   = Map.insert path newRevsForPath oldRevisions
   return $ td { tGetRevisions = newRevisions }
 
+-- | Remove specified files (all their revisions) from tracker data.
 removeFilesFromTrackerData :: TrackerData -> [FilePath] -> Maybe TrackerData
 removeFilesFromTrackerData trackerData paths = foldl removeFile
                                                      (Just trackerData)
@@ -121,6 +131,7 @@ removeFilesFromTrackerData trackerData paths = foldl removeFile
     let newRevisions = Map.delete p oldRevisions
     return $ td { tGetRevisions = newRevisions }
 
+-- | Data type for directories in memory.
 data Dir = Dir {
   dGetTrackerData :: Maybe TrackerData,
   dGetPermissions :: Permissions,
@@ -128,6 +139,7 @@ data Dir = Dir {
   dGetChildren    :: Map.Map FilePath DirEntry
 } deriving (Show)
 
+-- | Empty directory (initial state after creation).
 emptyDir :: Dir
 emptyDir = Dir { dGetTrackerData = Nothing
                , dGetPermissions = defaultPermissions
@@ -135,12 +147,15 @@ emptyDir = Dir { dGetTrackerData = Nothing
                , dGetChildren    = Map.empty
                }
 
+-- | Empty tracker data (initial state after init).
 emptyTrackerData :: TrackerData
 emptyTrackerData =
   TrackerData { tGetLastVersion = 0, tGetRevisions = Map.empty }
 
+-- | Data type for directory entries (files / directories).
 type DirEntry = Either File Dir
 
+-- | Initialize File with provided text content.
 buildFileWithContent :: String -> File
 buildFileWithContent content = File { fGetPermissions      = defaultPermissions
                                     , fGetModificationTime = Nothing
@@ -151,20 +166,24 @@ buildFileWithContent content = File { fGetPermissions      = defaultPermissions
   byteStringContent = BC.pack content
   byteStringSize    = (toInteger . B.length) byteStringContent
 
+-- | Check if the specified directory contains tracker data.
 isDirTracked :: Dir -> Bool
 isDirTracked dir = case dGetTrackerData dir of
   Nothing -> False
   _       -> True
 
+-- | List dir's direct children.
 listDirEntries :: Dir -> [FilePath]
 listDirEntries dir = Map.keys (dGetChildren dir)
 
+-- | List all children of dirent (recursively).
 listFilesInDirEntry :: FilePath -> DirEntry -> [FilePath]
 listFilesInDirEntry path (Left  _  ) = [path]
 listFilesInDirEntry path (Right dir) = map (path </>) allFiles where
   children = Map.toAscList (dGetChildren dir)
   allFiles = concatMap (uncurry listFilesInDirEntry) children
 
+-- | Extract dirent from given dir by its full path.
 getDirEntryByFullPath :: Dir -> FilePath -> Maybe DirEntry
 getDirEntryByFullPath rootDir fullPath = getDirEntryByPathComponents
   rootDir
@@ -179,6 +198,7 @@ getDirEntryByFullPath rootDir fullPath = getDirEntryByPathComponents
       Left  f -> if null cs then return (Left f) else Nothing
       Right d -> getDirEntryByPathComponents d cs
 
+-- | Use recursive substring search to find matching dirent paths.
 findDirentsBySubstring :: String -> DirEntry -> [FilePath]
 findDirentsBySubstring query dirent = case dirent of
   Left  _   -> []
@@ -194,17 +214,22 @@ findDirentsBySubstring query dirent = case dirent of
     recCall (p, d) = map (p </>) (findDirentsBySubstring query d)
     recursiveRes = concatMap recCall subdirs
 
+-- | Count direct directory children.
 getChildCount :: Dir -> Int
 getChildCount d = Map.size $ dGetChildren d
 
+-- | Approximate file type (MIME) based on the extension.
+-- TODO: use libmagic bindings to rely on content-based detection.
 getFileMimeTypeByName :: String -> String
 getFileMimeTypeByName name = BC.unpack $ defaultMimeLookup $ TS.pack name
 
+-- | Display possibly nonexistent timestamp.
 showOptionalTime :: Maybe UTCTime -> String
 showOptionalTime mbTime = case mbTime of
   Just t -> show t
   _      -> "-"
 
+-- | Reevaluate dirent size based on its direct children.
 calculateSize :: DirEntry -> DirEntry
 calculateSize (Right dir) = Right $ dir { dGetSize = newSize } where
   children = Map.elems $ dGetChildren dir

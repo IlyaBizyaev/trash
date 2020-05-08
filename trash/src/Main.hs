@@ -9,6 +9,7 @@ import Gui (runGUI)
 import Parsers (CliOptions (..), cliOptionsInfo)
 import Shell (runREPL)
 
+-- | Start a CLI or a GUI session, based on arguments.
 main :: IO ()
 main = do
   cliOptions <- execParser cliOptionsInfo

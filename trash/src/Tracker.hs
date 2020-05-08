@@ -27,6 +27,7 @@ import FileSystem (File (..), FileRevision (..), addRevisionsToTrackerData, empt
 import PathUtils (isChildOfPath, makeRelativeTo)
 import ShellData (CommandException (..), ShellState (..))
 
+-- | tracker's init command implementation.
 initCmd :: ExceptT CommandException (State ShellState) String
 initCmd = do
   st <- lift get
@@ -44,6 +45,7 @@ initCmd = do
   f Nothing = Right $ Just emptyTrackerData
   f _       = Left DirectoryAlreadyTracked
 
+-- | tracker's add (commit, no staging) command implementation.
 addCmd
   :: FilePath -> String -> ExceptT CommandException (State ShellState) String
 addCmd path summary = do
@@ -71,6 +73,7 @@ addCmd path summary = do
   f _    Nothing   = Left LocationNotTracked
   f revs (Just td) = Right $ Just $ addRevisionsToTrackerData td revs
 
+-- | tracker's log command implementation.
 logCmd :: FilePath -> ExceptT CommandException (State ShellState) String
 logCmd path = do
   fullPath    <- makePathAbsolute path
@@ -91,11 +94,13 @@ logCmd path = do
                 revLog
           return $ intercalate "\n" output
 
+-- | tracker's forget command implementation.
 forgetCmd :: FilePath -> ExceptT CommandException (State ShellState) String
 forgetCmd path = do
   forgetDirEntry path
   return ""
 
+-- | tracker's forget-rev command implementation.
 forgetRevCmd
   :: FilePath -> Integer -> ExceptT CommandException (State ShellState) String
 forgetRevCmd path rev = do
@@ -115,6 +120,7 @@ forgetRevCmd path rev = do
       Nothing -> Left RevisionIsNotInTrackerData
       Just td -> return $ Just td
 
+-- | tracker's checkout command implementation.
 checkoutCmd
   :: FilePath -> Integer -> ExceptT CommandException (State ShellState) String
 checkoutCmd path version = do
@@ -132,6 +138,7 @@ checkoutCmd path version = do
         Nothing  -> throwError RevisionIsNotInTrackerData
         Just rev -> return $ show rev
 
+-- | tracker's merge command implementation.
 mergeCmd
   :: FilePath
   -> Integer

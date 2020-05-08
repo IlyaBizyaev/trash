@@ -28,6 +28,7 @@ import PathUtils (lastSegment)
 import RealIO (trackerSubdirName)
 import ShellData (CommandException (..), ShellState (..))
 
+-- | Implementation of the ls command.
 lsCmd :: FilePath -> ExceptT CommandException (State ShellState) String
 lsCmd path = do
   dirent <- getDirEntry path
@@ -35,9 +36,11 @@ lsCmd path = do
     Left  _   -> takeFileName path
     Right dir -> intercalate "\n" (listDirEntries dir)
 
+-- | Implementation of the touch command (empty file creation).
 touchCmd :: FilePath -> ExceptT CommandException (State ShellState) String
 touchCmd path = writeCmd path ""
 
+-- | Implementation of the mkdir command (empty directory creation).
 mkdirCmd :: FilePath -> ExceptT CommandException (State ShellState) String
 mkdirCmd path = do
   fullPath <- makePathAbsolute path
@@ -47,6 +50,7 @@ mkdirCmd path = do
   addDirEntry direntToWrite fullPath
   return ""
 
+-- | Implementation of the cat command (file content display).
 catCmd :: FilePath -> ExceptT CommandException (State ShellState) String
 catCmd path = do
   dirent <- getDirEntry path
@@ -54,6 +58,7 @@ catCmd path = do
     Right _    -> throwError IllegalObjectType
     Left  file -> return $ BC.unpack (fGetContent file)
 
+-- | Implementation of the rm command (file and drectory removal).
 rmCmd :: FilePath -> ExceptT CommandException (State ShellState) String
 rmCmd path = do
   fullPath <- makePathAbsolute path
@@ -61,6 +66,7 @@ rmCmd path = do
   forgetDirEntryIfTracked fullPath
   return ""
 
+-- | Implementation of the write command (file creation using provided content).
 writeCmd
   :: FilePath -> String -> ExceptT CommandException (State ShellState) String
 writeCmd path text = do
@@ -71,11 +77,13 @@ writeCmd path text = do
   replaceDirEntry direntToWrite fullPath
   return ""
 
+-- | Implementation of the find command (object search by name substring).
 findCmd :: String -> ExceptT CommandException (State ShellState) String
 findCmd s = do
   dirent <- getDirEntry "."
   return $ intercalate "\n" (findDirentsBySubstring s dirent)
 
+-- | Implementation of the stat command (basic information about files and dirs).
 statCmd :: FilePath -> ExceptT CommandException (State ShellState) String
 statCmd path = do
   fullPath <- makePathAbsolute path

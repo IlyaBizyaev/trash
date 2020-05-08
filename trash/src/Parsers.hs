@@ -13,13 +13,16 @@ import Data.Semigroup ((<>))
 import Options.Applicative
 import ShellData (ShellCommand (..), TrackerSubcommand (..), shellVersionAndCodename)
 
+-- | trash's command line arguments.
 data CliOptions = CliOptions
   { gui     :: Bool }
 
+-- | trash's CLI arg parser.
 cliOptionsParser :: Parser CliOptions
 cliOptionsParser =
   CliOptions <$> switch (long "gui" <> help "Open in GUI mode")
 
+-- | trash CLI help description.
 cliOptionsInfo :: ParserInfo CliOptions
 cliOptionsInfo = info
   (   helper
@@ -33,6 +36,7 @@ cliOptionsInfo = info
   <> header "trash - the tracker shell"
   )
 
+-- | trash's REPL command parser.
 shellCommandParser :: Parser ShellCommand
 shellCommandParser = hsubparser
   (  command "exit" (info (pure ExitCommand) (progDesc "Exit the shell"))
@@ -127,6 +131,7 @@ shellCommandParser = hsubparser
        )
   )
 
+-- | trash's REPL parser help info.
 shellCommandInfo :: ParserInfo ShellCommand
 shellCommandInfo = info
   (helper <*> shellCommandParser)
@@ -134,6 +139,7 @@ shellCommandInfo = info
     "trash - the tracker shell"
   )
 
+-- | tracker command parser.
 trackerSubcommandParser :: Parser TrackerSubcommand
 trackerSubcommandParser = hsubparser
   (  command
@@ -149,6 +155,7 @@ trackerSubcommandParser = hsubparser
                (metavar "FILE" <> help
                  "Name of file or directory to add to check in to control"
                )
+         -- TODO: Allow input with spaces (implement quoted text parser)
          <*> strArgument (metavar "SUMMARY" <> help "Summary of the change")
          )
          (progDesc "Add file or directory as revision to Tracker")
@@ -201,8 +208,7 @@ trackerSubcommandParser = hsubparser
                auto
                (metavar "REV" <> help "Revision number to check out")
          )
-         (progDesc "Pring content of file at specific revision"
-         )
+         (progDesc "Pring content of file at specific revision")
        )
   <> command
        "merge"
@@ -220,6 +226,7 @@ trackerSubcommandParser = hsubparser
        )
   )
 
+-- | A pure parse result handler (stub).
 parseResultAsEither :: ParserResult a -> Either String a
 parseResultAsEither (Success a      ) = Right a
 parseResultAsEither (Failure failure) = do
@@ -228,6 +235,7 @@ parseResultAsEither (Failure failure) = do
 parseResultAsEither (CompletionInvoked _) = do
   Left "unreachable"
 
+-- | trash REPL parser wrapper.
 parseCommand :: String -> Either String ShellCommand
 parseCommand s = case filter (not . isSpace) s of
   "" -> Right EmptyCommand

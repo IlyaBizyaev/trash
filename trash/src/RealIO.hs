@@ -26,12 +26,15 @@ import System.FilePath.Posix
 import FileSystem (Dir (..), DirEntry, File (..), FileRevision (..), TrackerData (..),
                    calculateSize)
 
+-- | Tracker reserved subdir name.
 trackerSubdirName :: String
 trackerSubdirName = ".tracker"
 
+-- | Tracker index file name.
 indexFileName :: String
 indexFileName = "index"
 
+-- | Read a real directory into memory (DirEntry representation).
 readDirEntryFromFilesystem :: FilePath -> IO DirEntry
 readDirEntryFromFilesystem objectPath = do
   _         <- doesPathExist objectPath
@@ -149,7 +152,7 @@ readDirEntryFromFilesystem objectPath = do
                                         , tGetRevisions   = newRevs
                                         }
 
-
+-- Write the memory FS representation (DirEntry) into real FS.
 writeDirEntryToFilesystem :: FilePath -> DirEntry -> IO ()
 writeDirEntryToFilesystem path (Left file) = do
   B.writeFile path (fGetContent file)

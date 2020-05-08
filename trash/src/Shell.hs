@@ -20,6 +20,7 @@ import RealIO (readDirEntryFromFilesystem, writeDirEntryToFilesystem)
 import ShellData (CommandException (..), ShellCommand (..), ShellState (..), TrackerSubcommand (..))
 import Tracker (addCmd, checkoutCmd, forgetCmd, forgetRevCmd, initCmd, logCmd, mergeCmd)
 
+-- | Run trash REPl session.
 runREPL :: IO ()
 runREPL = do
   realPwd <- SD.getCurrentDirectory
@@ -37,6 +38,7 @@ runREPL = do
       finalState <- execNextCommand commands initialState
       writeDirEntryToFilesystem realPwd $ Right $ sGetRootDir finalState
 
+-- | Grab next command to execute from stdin.
 execNextCommand :: [String] -> ShellState -> IO ShellState
 execNextCommand []           st = return st
 execNextCommand (cmd : cmds) st = do
@@ -80,19 +82,23 @@ execNextCommand (cmd : cmds) st = do
         execTrackerSubcommand (MergeCommand path rev1 rev2 strategy) =
           mergeCmd path rev1 rev2 strategy
 
+-- | Display command prompt (with PWD).
 printPrompt :: FilePath -> IO ()
 printPrompt pwd = do
   putStr $ pwd ++ " > "
   hFlush stdout
 
+-- | Update tracker path when PWD is changed.
 updatePwd :: FilePath -> ShellState -> ShellState
 updatePwd newPwd st = updateTrackerPath st { sGetPwd = newPwd }
 
+-- | Print FS from memory for debugging purposes.
 debugCmd :: ExceptT CommandException (State ShellState) String
 debugCmd = do
   st <- lift get
   return $ show st
 
+-- | Change PWD to the specified path.
 cdCmd :: FilePath -> ExceptT CommandException (State ShellState) String
 cdCmd path = do
   fullPath <- makePathAbsolute path

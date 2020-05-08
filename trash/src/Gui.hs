@@ -6,5 +6,6 @@ module Gui
   )
 where
 
+-- | Trash's missing GUI. Imagine QMetaObject bindings here.
 runGUI :: IO ()
 runGUI = putStrLn "GUI is not yet implemented"

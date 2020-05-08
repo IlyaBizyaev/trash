@@ -17,6 +17,7 @@ import FileSystem (Dir (..))
 shellVersionAndCodename :: String
 shellVersionAndCodename = "v0.1.0 tragic speshka"
 
+-- | Enumeration of available trash commands.
 data ShellCommand = EmptyCommand
                   | ExitCommand
                   | DebugCommand
@@ -31,6 +32,7 @@ data ShellCommand = EmptyCommand
                   | StatCommand FilePath
                   | TrackerCommand TrackerSubcommand deriving (Eq, Show)
 
+-- | Enumeration of available tracker commands.
 data TrackerSubcommand = InitCommand
                        | AddCommand FilePath String
                        | LogCommand FilePath
@@ -39,6 +41,7 @@ data TrackerSubcommand = InitCommand
                        | CheckoutCommand FilePath Integer
                        | MergeCommand FilePath Integer Integer String deriving (Eq, Show)
 
+-- | Data type for the shell cross-command execution state.
 data ShellState = ShellState {
   sGetRootDir    :: Dir,
   sGetPwd        :: FilePath,
@@ -50,6 +53,7 @@ instance Show ShellState where
     "\n"
     ["PWD: " ++ pwd, "Tracker: " ++ show trackerPath, "FS: " ++ show dir]
 
+-- | Enumeration of exceptions thrown by shell commands.
 data CommandException = ReservedObjectName
                       | IllegalObjectType
                       | LocationNotTracked
@@ -61,3 +65,4 @@ data CommandException = ReservedObjectName
                       | ObjectAlreadyExists
                       | DirectoryAlreadyTracked
                       | UnknownMergeStrategy deriving (Eq, Show)
+-- TODO: implement Show for CommandException manually, extend exceptions with context.
