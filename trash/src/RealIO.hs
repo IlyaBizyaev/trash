@@ -17,13 +17,14 @@ import Data.Foldable (mapM_)
 import Data.List (elemIndex, intercalate, partition, (\\))
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
-import FileSystem (Dir (..), DirEntry, File (..), FileRevision (..), TrackerData (..),
-                   calculateSize)
 import System.Directory (createDirectory, createDirectoryIfMissing, doesDirectoryExist,
                          doesFileExist, doesPathExist, getFileSize, getModificationTime,
                          getPermissions, listDirectory, pathIsSymbolicLink, removePathForcibly,
                          setModificationTime, setPermissions)
 import System.FilePath.Posix
+
+import FileSystem (Dir (..), DirEntry, File (..), FileRevision (..), TrackerData (..),
+                   calculateSize)
 
 trackerSubdirName :: String
 trackerSubdirName = ".tracker"

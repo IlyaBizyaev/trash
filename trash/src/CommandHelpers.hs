@@ -23,12 +23,13 @@ where
 import Control.Monad.Except (ExceptT, catchError, throwError)
 import Control.Monad.State.Lazy
 import qualified Data.Map.Strict as Map
+import System.FilePath.Posix
+
 import FileSystem (Dir (..), DirEntry, TrackerData (..), calculateSize, emptyDir,
                    getDirEntryByFullPath, isDirTracked, listFilesInDirEntry,
                    removeFilesFromTrackerData)
 import PathUtils (fullNormalize, makeRelativeTo)
 import ShellData (CommandException (..), ShellState (..))
-import System.FilePath.Posix
 
 makePathAbsolute
   :: FilePath -> ExceptT CommandException (State ShellState) FilePath

@@ -13,19 +13,20 @@ module FileManager
   )
 where
 
-import CommandHelpers (addDirEntry, forgetDirEntryIfTracked, getDirEntry, makePathAbsolute,
-                       replaceDirEntry, rmDirEntry)
 import Control.Monad.Except (ExceptT, throwError)
 import Control.Monad.State.Lazy
 import qualified Data.ByteString.Char8 as BC
 import Data.List (intercalate)
+import System.FilePath.Posix
+
+import CommandHelpers (addDirEntry, forgetDirEntryIfTracked, getDirEntry, makePathAbsolute,
+                       replaceDirEntry, rmDirEntry)
 import FileSystem (Dir (..), File (..), buildFileWithContent, emptyDir, findDirentsBySubstring,
                    getChildCount, getFileMimeTypeByName, listDirEntries, showOptionalTime,
                    showPermissions)
 import PathUtils (lastSegment)
 import RealIO (trackerSubdirName)
 import ShellData (CommandException (..), ShellState (..))
-import System.FilePath.Posix
 
 lsCmd :: FilePath -> ExceptT CommandException (State ShellState) String
 lsCmd path = do

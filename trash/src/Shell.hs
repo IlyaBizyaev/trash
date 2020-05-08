@@ -7,16 +7,17 @@ module Shell
   , runREPL
   )
 where
-import CommandHelpers (getDirEntry, makePathAbsolute, updateTrackerPath)
 import Control.Monad.Except (ExceptT, runExceptT, throwError)
 import Control.Monad.State.Lazy
+import qualified System.Directory as SD
+import System.IO (hFlush, hPrint, hPutStrLn, stderr, stdout)
+
+import CommandHelpers (getDirEntry, makePathAbsolute, updateTrackerPath)
 import FileManager (catCmd, findCmd, lsCmd, mkdirCmd, rmCmd, statCmd, touchCmd, writeCmd)
 import FileSystem (isDirTracked)
 import Parsers (parseCommand)
 import RealIO (readDirEntryFromFilesystem, writeDirEntryToFilesystem)
 import ShellData (CommandException (..), ShellCommand (..), ShellState (..), TrackerSubcommand (..))
-import qualified System.Directory as SD
-import System.IO (hFlush, hPrint, hPutStrLn, stderr, stdout)
 import Tracker (addCmd, checkoutCmd, forgetCmd, forgetRevCmd, initCmd, logCmd, mergeCmd)
 
 runREPL :: IO ()

@@ -11,6 +11,7 @@ module ShellData
 where
 
 import Data.List (intercalate)
+
 import FileSystem (Dir (..))
 
 shellVersionAndCodename :: String

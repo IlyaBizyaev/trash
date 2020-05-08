@@ -12,14 +12,15 @@ module Tracker
   )
 where
 
-import CommandHelpers (TrackerDataFunction, forgetDirEntry, getDirEntry, getTrackerData,
-                       getTrackerDirectory, makePathAbsolute, modifyTrackerData,
-                       modifyTrackerDataAtPath, replaceDirEntry, updateTrackerPath)
 import Control.Monad.Except (ExceptT, throwError)
 import Control.Monad.State.Lazy
 import qualified Data.ByteString as B
 import Data.Either (isRight)
 import Data.List (intercalate)
+
+import CommandHelpers (TrackerDataFunction, forgetDirEntry, getDirEntry, getTrackerData,
+                       getTrackerDirectory, makePathAbsolute, modifyTrackerData,
+                       modifyTrackerDataAtPath, replaceDirEntry, updateTrackerPath)
 import FileSystem (File (..), FileRevision (..), addRevisionsToTrackerData, emptyTrackerData,
                    getLogFromTrackerData, getRevisionFromTrackerData, listFilesInDirEntry,
                    removeRevisionFromTrackerData)

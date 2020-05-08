@@ -35,9 +35,10 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Text as TS
 import Data.Time.Clock (UTCTime)
 import Network.Mime
-import PathUtils (fullNormalize)
 import System.Directory (Permissions, emptyPermissions, executable, readable, searchable, writable)
 import System.FilePath.Posix
+
+import PathUtils (fullNormalize)
 
 data FileRevision = FileRevision {
   frGetName    :: String,
