@@ -7,16 +7,15 @@ module Shell
   , runREPL
   )
 where
-import CommandHelpers (getDirEntry, makePathAbsolute)
+import CommandHelpers (getDirEntry, makePathAbsolute, updateTrackerPath)
 import Control.Monad.Except (ExceptT, runExceptT, throwError)
 import Control.Monad.State.Lazy
 import FileManager (catCmd, findCmd, lsCmd, mkdirCmd, rmCmd, statCmd, touchCmd, writeCmd)
-import FileSystem (getDirEntryByFullPath, isDirTracked)
+import FileSystem (isDirTracked)
 import Parsers (parseCommand)
 import RealIO (readDirEntryFromFilesystem, writeDirEntryToFilesystem)
 import ShellData (CommandException (..), ShellCommand (..), ShellState (..), TrackerSubcommand (..))
 import qualified System.Directory as SD
-import System.FilePath.Posix
 import System.IO (hFlush, hPrint, hPutStrLn, stderr, stdout)
 import Tracker (addCmd, checkoutCmd, forgetCmd, forgetRevCmd, initCmd, logCmd, mergeCmd)
 
@@ -85,18 +84,7 @@ printPrompt pwd = do
   hFlush stdout
 
 updatePwd :: FilePath -> ShellState -> ShellState
-updatePwd newPwd st = st { sGetPwd = newPwd, sGetTrackerDir = newTrackerDir } where
-  rootDir          = sGetRootDir st
-  newPwdComponents = (reverse . splitDirectories) newPwd
-  newTrackerDir    = findClosestTrackedAncestor newPwdComponents
-  findClosestTrackedAncestor []         = Nothing
-  findClosestTrackedAncestor x@(_ : xs) = if isSubdirAtPathTracked curPath
-    then Just curPath
-    else findClosestTrackedAncestor xs
-    where curPath = (joinPath . reverse) x
-  isSubdirAtPathTracked p = case getDirEntryByFullPath rootDir p of
-    Just (Right dir) -> isDirTracked dir
-    _                -> False
+updatePwd newPwd st = updateTrackerPath st { sGetPwd = newPwd }
 
 helpCmd :: ExceptT CommandException (State ShellState) String
 helpCmd = return
@@ -107,7 +95,7 @@ cdCmd path = do
   fullPath <- makePathAbsolute path
   dirent   <- getDirEntry path
   case dirent of
-    Left  _ -> throwError UnknownException
+    Left  _ -> throwError IllegalObjectType
     Right _ -> do
       modify (updatePwd fullPath)
       return ""

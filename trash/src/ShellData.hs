@@ -43,4 +43,14 @@ data ShellState = ShellState {
   sGetTrackerDir :: Maybe FilePath
 }
 
-data CommandException = UnknownException deriving (Eq, Show)
+data CommandException = ReservedObjectName
+                      | IllegalObjectType
+                      | LocationNotTracked
+                      | ObjectNotFound
+                      | ObjectIsNotAChild
+                      | RevisionIsNotInTrackerData
+                      | FileIsNotInTrackerData
+                      | ShellInternalError
+                      | ObjectAlreadyExists
+                      | DirectoryAlreadyTracked
+                      | UnknownMergeStrategy deriving (Eq, Show)

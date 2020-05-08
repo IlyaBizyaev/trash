@@ -39,7 +39,8 @@ touchCmd path = writeCmd path ""
 mkdirCmd :: FilePath -> ExceptT CommandException (State ShellState) String
 mkdirCmd path = do
   fullPath <- makePathAbsolute path
-  when (lastSegment fullPath == trackerSubdirName) (throwError UnknownException)
+  when (lastSegment fullPath == trackerSubdirName)
+       (throwError ReservedObjectName)
   let direntToWrite = Right emptyDir
   addDirEntry direntToWrite fullPath
   return ""
@@ -48,7 +49,7 @@ catCmd :: FilePath -> ExceptT CommandException (State ShellState) String
 catCmd path = do
   dirent <- getDirEntry path
   case dirent of
-    Right _    -> throwError UnknownException
+    Right _    -> throwError IllegalObjectType
     Left  file -> return $ BC.unpack (fGetContent file)
 
 rmCmd :: FilePath -> ExceptT CommandException (State ShellState) String
@@ -62,7 +63,8 @@ writeCmd
   :: FilePath -> String -> ExceptT CommandException (State ShellState) String
 writeCmd path text = do
   fullPath <- makePathAbsolute path
-  when (lastSegment fullPath == trackerSubdirName) (throwError UnknownException)
+  when (lastSegment fullPath == trackerSubdirName)
+       (throwError ReservedObjectName)
   let direntToWrite = Left $ buildFileWithContent text
   addDirEntry direntToWrite path
   return ""
