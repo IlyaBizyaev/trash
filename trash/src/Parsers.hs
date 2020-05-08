@@ -201,7 +201,7 @@ trackerSubcommandParser = hsubparser
                auto
                (metavar "REV" <> help "Revision number to check out")
          )
-         (progDesc "Clear revision log of a file or a directory (recursively)"
+         (progDesc "Pring content of file at specific revision"
          )
        )
   <> command

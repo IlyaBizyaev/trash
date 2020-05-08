@@ -94,7 +94,7 @@ readDirEntryFromFilesystem objectPath = do
     _         -> Nothing
   relPathToRev path = parseRev . (splitLast '_') $ path   where
     parseRev (p, shouldBeVer) = do
-      ver <- safeReadInteger shouldBeVer
+      ver <- safeReadInteger (tail shouldBeVer)
       return (p, ver)
   insertRevToMap mapVerToSumm oldMap ((path, ver), content) =
     case Map.lookup path oldMap of
@@ -115,7 +115,7 @@ readDirEntryFromFilesystem objectPath = do
     case parseLastVer of
       [] -> throwIO $ userError "No last revision version in tracker index"
       [(lastVer, summaryList)] -> do
-        let summaryLines      = lines summaryList
+        let summaryLines      = filter (/= "") (lines summaryList)
         let mbSummaryStrPairs = mapM summLineToPair summaryLines
         case mbSummaryStrPairs of
           Nothing ->
