@@ -19,35 +19,59 @@ import           Control.Monad.State.Lazy
 import           ShellData                      ( ShellState(..)
                                                 , CommandException(..)
                                                 )
-import           FileSystem                     ( isDirTracked )
-import           CommandHelpers                 ( getDirentryByPath, forgetDirEntry )
+import           PathUtils                      ( isChildOfPath
+                                                , makeRelativeTo
+                                                )
+import           FileSystem                     ( File(..)
+                                                , FileRevision(..)
+                                                , isDirTracked
+                                                , emptyTrackerData
+                                                , addRevisionsToTrackerData
+                                                , listFilesInDirEntry
+                                                )
+import           CommandHelpers                 ( makePathAbsolute
+                                                , getDirentryByPath
+                                                , forgetDirEntry
+                                                , modifyTrackerData
+                                                , getTrackerDirectory
+                                                , TrackerDataFunction
+                                                )
 
 initCmd :: ExceptT CommandException (State ShellState) String
 initCmd = do
-  dirent <- getDirentryByPath "."
-  case dirent of
-    Left  _   -> throwError UnknownException
-    Right dir -> if isDirTracked dir
-      then throwError UnknownException
-      else do
-        return ""
--- learn to put emptyTrackerData deep into the structure, and how to generalize it for other funcs...
--- at least the action of VCS replacement
+  modifyTrackerData f
+  return ""
+ where
+  f :: TrackerDataFunction
+  f Nothing = Right $ Just emptyTrackerData
+  f _       = Left UnknownException
 
-addCmd :: FilePath -> ExceptT CommandException (State ShellState) String
-addCmd path = undefined
--- use: addRevisionsToTrackerData, modifyTrackerData
--- ensure vcs dir is not Nothing
--- get full path of the target path
--- verify full path is a child/eq of tracker path
--- get that path relative to tracker path
--- get dirent for path (normalized relative? or works with absolute?)
--- for file: get contents
--- for dir: get all files in that dir, get their contents
--- build map vscRelPath -> currentContent for all files affected
--- function on vcs dir: add new revisions for affected files (external f, increments rev cnt)
--- TODO: later, also check if anything has been modified before doing that
-
+addCmd
+  :: FilePath -> String -> ExceptT CommandException (State ShellState) String
+addCmd path summary = do
+  fullPath    <- makePathAbsolute path
+  trackerPath <- getTrackerDirectory
+  unless (isChildOfPath trackerPath fullPath) (throwError UnknownException)
+  dirent <- getDirentryByPath path
+  let filesAffected = listFilesInDirEntry fullPath dirent
+  fileContents <- mapM getFileContentByPath filesAffected
+  let relativePaths = mapM (makeRelativeTo trackerPath) filesAffected
+  case relativePaths of
+    Nothing       -> throwError UnknownException
+    Just relPaths -> do
+      let newRevs = zipWith (prepareFileRev summary) relPaths fileContents
+      modifyTrackerData (f newRevs)
+      return ""
+ where
+  prepareFileRev summ p content = (p, FileRevision summ content)
+  getFileContentByPath p = do
+    de <- getDirentryByPath p
+    case de of
+      Right _    -> throwError UnknownException
+      Left  file -> return $ fGetContent file
+  f :: [(FilePath, FileRevision)] -> TrackerDataFunction
+  f _    Nothing   = Left UnknownException
+  f revs (Just td) = Right $ Just $ addRevisionsToTrackerData td revs
 
 logCmd :: FilePath -> ExceptT CommandException (State ShellState) String
 logCmd path = undefined

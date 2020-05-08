@@ -142,6 +142,8 @@ trackerSubcommandParser = hsubparser
            (metavar "FILE" <> help
              "Name of file or directory to add to check in to control"
            )
+           <*> strArgument
+               (metavar "SUMMARY" <> help "Summary of the change")
          )
          (progDesc "Add file or directory as revision to Tracker")
        )

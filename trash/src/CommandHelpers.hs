@@ -14,6 +14,9 @@ module CommandHelpers
   , modifyDirEntryAtPath
   , modifyTrackerDataAtPath
   , modifyTrackerData
+  , getTrackerDirectory
+  , DirEntryFunction
+  , TrackerDataFunction
   )
 where
 
@@ -30,6 +33,8 @@ import           FileSystem                     ( Dir(..)
                                                 , emptyDir
                                                 , calculateSize
                                                 , getDirEntryByFullPath
+                                                , removeFilesFromTrackerData
+                                                , listFilesInDirEntry
                                                 )
 import           System.FilePath.Posix
 import           PathUtils                      ( fullNormalize )
@@ -53,10 +58,17 @@ getDirentryByPath path = do
 isPathAbsent :: FilePath -> ExceptT CommandException (State ShellState) Bool
 isPathAbsent path = do
   st <- lift get
-  let fullPath = (sGetPwd st) </> path -- TODO: normalize?
+  fullPath <- makePathAbsolute path
   case getDirEntryByFullPath (sGetRootDir st) fullPath of
     Nothing -> return True
     _       -> return False
+
+getTrackerDirectory :: ExceptT CommandException (State ShellState) FilePath
+getTrackerDirectory = do
+  st <- lift get
+  case sGetTrackerDir st of
+    Nothing -> throwError UnknownException
+    Just path -> return path
 
 addDirEntry
   :: DirEntry -> FilePath -> ExceptT CommandException (State ShellState) ()
@@ -110,10 +122,18 @@ modifyTrackerData f = do
         Right dir -> do
           let newSt = st {sGetRootDir = dir}
           put newSt
--- use modifyTrackerDataAtPath
 
 forgetDirEntry :: FilePath -> ExceptT CommandException (State ShellState) ()
-forgetDirEntry = undefined -- use removeFilesFromTrackerData, mb listFilesInDirEntry, modifyTrackerData
+forgetDirEntry path = do
+  dirent <- getDirentryByPath path
+  let pathsToForget = listFilesInDirEntry path dirent
+  modifyTrackerData (f pathsToForget)
+  where
+    f :: [FilePath] -> TrackerDataFunction
+    f _ Nothing = Left UnknownException
+    f paths (Just trackerData) = case removeFilesFromTrackerData trackerData paths of
+      Nothing -> Left UnknownException
+      Just td -> return $ Just td
 
 forgetDirEntryIfTracked
   :: FilePath -> ExceptT CommandException (State ShellState) ()
@@ -184,7 +204,7 @@ addDirEntryAtPath rootDir dirEntry path = do
     Nothing -> Left UnknownException
     Just dir -> return dir
   where
-  f :: Maybe DirEntry -> Either CommandException (Maybe DirEntry)
+  f :: DirEntryFunction
   f Nothing = Right $ Just $ dirEntry
   f _ = Left UnknownException
 
@@ -195,7 +215,7 @@ rmDirEntryAtPath rootDir path = do
     Nothing -> return emptyDir
     Just dir -> return dir
   where
-  f :: Maybe DirEntry -> Either CommandException (Maybe DirEntry)
+  f :: DirEntryFunction
   f Nothing = Left UnknownException
   f _ = Right Nothing
 

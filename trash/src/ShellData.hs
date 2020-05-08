@@ -26,7 +26,7 @@ data ShellCommand = EmptyCommand
                   | TrackerCommand TrackerSubcommand deriving (Eq, Show)
 
 data TrackerSubcommand = InitCommand
-                       | AddCommand FilePath
+                       | AddCommand FilePath String
                        | LogCommand FilePath
                        | ForgetCommand FilePath
                        | ForgetRevCommand FilePath Integer

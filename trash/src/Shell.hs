@@ -104,7 +104,7 @@ execNextCommand (cmd : cmds) st = do
         execCommand (TrackerCommand subc   ) = execTrackerSubcommand subc
 
         execTrackerSubcommand InitCommand          = initCmd
-        execTrackerSubcommand (AddCommand    path) = addCmd path
+        execTrackerSubcommand (AddCommand    path summary) = addCmd path summary
         execTrackerSubcommand (LogCommand    path) = logCmd path
         execTrackerSubcommand (ForgetCommand path) = forgetCmd path
         execTrackerSubcommand (ForgetRevCommand path rev) =
