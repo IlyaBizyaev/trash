@@ -30,7 +30,6 @@ runREPL = do
       let initialTrackerDir = if isDirTracked initD then Just "/" else Nothing
       stdinContents <- getContents
       let initialState = ShellState initD initialPwd initialTrackerDir
-      printPrompt initialPwd
       let commands = lines stdinContents
       finalState <- execNextCommand commands initialState
       writeDirEntryToFilesystem initialPwd $ Right $ sGetRootDir finalState
@@ -52,7 +51,7 @@ execNextCommand (cmd : cmds) st = do
             hFlush stderr
           Right s -> do
             putStrLn s
-            printPrompt (sGetPwd newSt)
+        printPrompt (sGetPwd newSt)
         execNextCommand cmds newSt
        where
         execCommand (LsCommand    path     ) = lsCmd path
@@ -65,7 +64,7 @@ execNextCommand (cmd : cmds) st = do
         execCommand (FindCommand    s      ) = findCmd s
         execCommand (StatCommand    path   ) = statCmd path
         execCommand (TrackerCommand subc   ) = execTrackerSubcommand subc
-        execCommand _                        = undefined
+        execCommand _             = return ""
 
         execTrackerSubcommand InitCommand               = initCmd
         execTrackerSubcommand (AddCommand path summary) = addCmd path summary
