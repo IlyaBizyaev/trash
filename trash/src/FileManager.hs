@@ -33,17 +33,19 @@ import           ShellData                      ( ShellState(..)
                                                 )
 import           System.FilePath.Posix
 import           Data.List                      ( intercalate )
-import           CommandHelpers                 ( getDirentryByPath
+import           CommandHelpers                 ( getDirEntry
                                                 , isPathAbsent
                                                 , addDirEntry
+                                                , replaceDirEntry
                                                 , rmDirEntry
                                                 , forgetDirEntry
+                                                , forgetDirEntryIfTracked
                                                 )
 
 
 lsCmd :: FilePath -> ExceptT CommandException (State ShellState) String
 lsCmd path = do
-  dirent <- getDirentryByPath path
+  dirent <- getDirEntry path
   return $ case dirent of
     Left  _   -> takeFileName path
     Right dir -> intercalate "\n" (listDirEntries dir)
@@ -65,7 +67,7 @@ mkdirCmd path = do
 
 catCmd :: FilePath -> ExceptT CommandException (State ShellState) String
 catCmd path = do
-  dirent <- getDirentryByPath path
+  dirent <- getDirEntry path
   case dirent of
     Right _    -> throwError UnknownException
     Left  file -> return $ BC.unpack (fGetContent file)
@@ -77,8 +79,7 @@ rmCmd path = do
   isAbsent <- isPathAbsent normalizedPath
   when isAbsent (throwError UnknownException)
   rmDirEntry path
-  fileTracked <- isFileTracked path
-  when fileTracked (forgetDirEntry path)
+  forgetDirEntryIfTracked path
   return ""
 
 -- forbid writing .tracker file
@@ -97,7 +98,7 @@ findCmd :: String -> ExceptT CommandException (State ShellState) String
 findCmd s = do
   st <- get
   let pwd = sGetPwd st
-  dirent <- getDirentryByPath pwd
+  dirent <- getDirEntry pwd
   return $ intercalate "\n" (findDirentsBySubstring s dirent)
 
 statCmd :: FilePath -> ExceptT CommandException (State ShellState) String
@@ -106,7 +107,7 @@ statCmd path = do
   let fullPath       = normalizedPath -- TODO: need to use </>, but what if passed path is already absolute?
   -- need to fix this everywhere
   let pathLine       = "Path: " ++ fullPath
-  dirent <- getDirentryByPath normalizedPath
+  dirent <- getDirEntry normalizedPath
   return $ intercalate "\n" $ case dirent of
     Left file ->
       [pathLine, permissionsLine, sizeLine, modLine, typeLine]     where

@@ -32,7 +32,7 @@ import           ShellData                      ( ShellState(..)
                                                 , TrackerSubcommand(..)
                                                 )
 import           CommandHelpers                 ( makePathAbsolute
-                                                , getDirentryByPath
+                                                , getDirEntry
                                                 )
 import           FileManager                    ( lsCmd
                                                 , touchCmd
@@ -144,7 +144,7 @@ helpCmd = return
 cdCmd :: FilePath -> ExceptT CommandException (State ShellState) String
 cdCmd path = do
   fullPath <- makePathAbsolute path
-  dirent   <- getDirentryByPath path
+  dirent   <- getDirEntry path
   case dirent of
     Left  _ -> throwError UnknownException
     Right _ -> do

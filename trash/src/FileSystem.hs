@@ -46,6 +46,11 @@ data FileRevision = FileRevision {
   frGetContent :: B.ByteString
 }
 
+instance Show FileRevision where
+  show revision = summaryLine ++ '\n':contentBlock where
+    summaryLine = "Summary: " ++ frGetName revision
+    contentBlock = BC.unpack $ frGetContent revision
+
 -- TODO: how to reliably set permissions for the file that we are going to create? Do we know them in advance?
 data File = File {
   fGetPermissions :: Permissions,

@@ -3,9 +3,9 @@
 
 module CommandHelpers
   ( makePathAbsolute
-  , getDirentryByPath
   , isPathAbsent
   , addDirEntry
+  , replaceDirEntry
   , rmDirEntry
   , getDirEntry
   , getTrackerData
@@ -22,6 +22,7 @@ where
 
 import           Control.Monad.Except           ( ExceptT
                                                 , throwError
+                                                , catchError
                                                 )
 import           Control.Monad.State.Lazy
 import           ShellData                      ( ShellState(..)
@@ -45,15 +46,6 @@ makePathAbsolute
 makePathAbsolute path = do
   st <- lift get
   return $ (sGetPwd st) </> fullNormalize path
-
-getDirentryByPath
-  :: FilePath -> ExceptT CommandException (State ShellState) DirEntry
-getDirentryByPath path = do
-  fullPath <- makePathAbsolute path
-  st       <- lift get
-  case getDirEntryByFullPath (sGetRootDir st) fullPath of
-    Nothing -> throwError UnknownException
-    Just d  -> return d
 
 isPathAbsent :: FilePath -> ExceptT CommandException (State ShellState) Bool
 isPathAbsent path = do
@@ -80,6 +72,16 @@ addDirEntry dirent path = do
     Left e -> throwError e
     Right dir -> put st { sGetRootDir = dir }
 
+replaceDirEntry
+  :: DirEntry -> FilePath -> ExceptT CommandException (State ShellState) ()
+replaceDirEntry dirent path = do
+  st <- lift get
+  let oldDir = sGetRootDir st
+  let optNewDir = replaceDirEntryAtPath oldDir dirent path
+  case optNewDir of
+    Left e -> throwError e
+    Right dir -> put st { sGetRootDir = dir }
+
 rmDirEntry :: FilePath -> ExceptT CommandException (State ShellState) ()
 rmDirEntry path = do
   st <- lift get
@@ -99,9 +101,10 @@ getDirEntry path = do
     Just de -> return de
 
 getTrackerData
-  :: FilePath -> ExceptT CommandException (State ShellState) TrackerData
-getTrackerData path = do
-  dirent <- getDirEntry path
+  :: ExceptT CommandException (State ShellState) TrackerData
+getTrackerData = do
+  trackerDir <- getTrackerDirectory
+  dirent <- getDirEntry trackerDir
   case dirent of
     Left  _   -> throwError UnknownException
     Right dir -> case dGetTrackerData dir of
@@ -125,7 +128,7 @@ modifyTrackerData f = do
 
 forgetDirEntry :: FilePath -> ExceptT CommandException (State ShellState) ()
 forgetDirEntry path = do
-  dirent <- getDirentryByPath path
+  dirent <- getDirEntry path
   let pathsToForget = listFilesInDirEntry path dirent
   modifyTrackerData (f pathsToForget)
   where
@@ -137,7 +140,7 @@ forgetDirEntry path = do
 
 forgetDirEntryIfTracked
   :: FilePath -> ExceptT CommandException (State ShellState) ()
-forgetDirEntryIfTracked = undefined
+forgetDirEntryIfTracked path = catchError (forgetDirEntry path) (\_ -> return ())
 
 type DirEntryFunction
   = Maybe DirEntry -> Either CommandException (Maybe DirEntry)
@@ -207,6 +210,16 @@ addDirEntryAtPath rootDir dirEntry path = do
   f :: DirEntryFunction
   f Nothing = Right $ Just $ dirEntry
   f _ = Left UnknownException
+
+replaceDirEntryAtPath :: Dir -> DirEntry -> FilePath -> Either CommandException Dir
+replaceDirEntryAtPath rootDir dirEntry path = do
+  call <- modifyDirEntryAtPath rootDir path f
+  case call of
+    Nothing -> Left UnknownException
+    Just dir -> return dir
+  where
+  f :: DirEntryFunction
+  f _ = Right $ Just $ dirEntry
 
 rmDirEntryAtPath :: Dir -> FilePath -> Either CommandException Dir
 rmDirEntryAtPath rootDir path = do

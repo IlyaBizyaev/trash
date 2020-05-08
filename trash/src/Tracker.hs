@@ -28,14 +28,17 @@ import           FileSystem                     ( File(..)
                                                 , emptyTrackerData
                                                 , addRevisionsToTrackerData
                                                 , listFilesInDirEntry
+                                                , getLogFromTrackerData
                                                 )
 import           CommandHelpers                 ( makePathAbsolute
-                                                , getDirentryByPath
+                                                , getDirEntry
                                                 , forgetDirEntry
                                                 , modifyTrackerData
                                                 , getTrackerDirectory
+                                                , getTrackerData
                                                 , TrackerDataFunction
                                                 )
+import           Data.List                      ( intercalate )
 
 initCmd :: ExceptT CommandException (State ShellState) String
 initCmd = do
@@ -52,7 +55,7 @@ addCmd path summary = do
   fullPath    <- makePathAbsolute path
   trackerPath <- getTrackerDirectory
   unless (isChildOfPath trackerPath fullPath) (throwError UnknownException)
-  dirent <- getDirentryByPath path
+  dirent <- getDirEntry path
   let filesAffected = listFilesInDirEntry fullPath dirent
   fileContents <- mapM getFileContentByPath filesAffected
   let relativePaths = mapM (makeRelativeTo trackerPath) filesAffected
@@ -65,7 +68,7 @@ addCmd path summary = do
  where
   prepareFileRev summ p content = (p, FileRevision summ content)
   getFileContentByPath p = do
-    de <- getDirentryByPath p
+    de <- getDirEntry p
     case de of
       Right _    -> throwError UnknownException
       Left  file -> return $ fGetContent file
@@ -74,29 +77,27 @@ addCmd path summary = do
   f revs (Just td) = Right $ Just $ addRevisionsToTrackerData td revs
 
 logCmd :: FilePath -> ExceptT CommandException (State ShellState) String
-logCmd path = undefined
--- use: getLogFromTrackerData, listFilesInDirEntry
--- ensure vcs dir is not Nothing
--- get full path of the target path
--- verify full path is a child/eq of tracker path
--- get that path relative to tracker path
--- get dirent for path (normalized relative? or works with absolute?)
--- get vcs dir
--- get tracker data
--- for file dirent: query the rel path in tracker data
--- for dir dirent: get all paths of children recursively (generalize query f), query all their revisions
--- sort revisions, merge files with same rev number (result of dir add)
--- pretty-print
+logCmd path = do
+  fullPath    <- makePathAbsolute path
+  dirent <- getDirEntry path
+  trackerPath <- getTrackerDirectory
+  let filePaths = listFilesInDirEntry fullPath dirent
+  trackerData <- getTrackerData
+  let relativePaths = mapM (makeRelativeTo trackerPath) filePaths
+  case relativePaths of
+    Nothing -> throwError UnknownException
+    Just relPaths -> do
+      let revisionLog = getLogFromTrackerData trackerData relPaths
+      case revisionLog of
+        Nothing -> throwError UnknownException
+        Just revLog -> do
+          let output = concatMap (\(ver, rs) -> ("# Revision " ++ show ver):(map show rs)) revLog
+          return $ intercalate "\n" output
 
 forgetCmd :: FilePath -> ExceptT CommandException (State ShellState) String
 forgetCmd path = do
   forgetDirEntry path
   return ""
--- function on state's tracker dir data:
--- * if no tracker dir, fail with error
--- * if have tracker dir but not file's revision log in it, fail with error
--- * otherwise delete file's key from tracker dir data
--- along the way, need file path relative to tracker dir (child/eq, or fail)
 
 forgetRevCmd
   :: FilePath -> Integer -> ExceptT CommandException (State ShellState) String
