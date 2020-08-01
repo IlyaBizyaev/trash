@@ -1,5 +1,6 @@
 # Trash — The Tracker Shell
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://github.com/IlyaBizyaev/trash/blob/master/LICENSE)
+![Haskell Stack CI](https://github.com/IlyaBizyaev/trash/workflows/Haskell%20Stack%20CI/badge.svg)
 
 This repository contains a small shell implementation that has some basic file management commands and a tiny VCS called Tracker.
 Inspired by crosh.
