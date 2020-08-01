@@ -1,4 +1,5 @@
 # Trash — The Tracker Shell
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://github.com/IlyaBizyaev/trash/blob/master/LICENSE)
 
 This repository contains a small shell implementation that has some basic file management commands and a tiny VCS called Tracker.
 Inspired by crosh.
