@@ -3,7 +3,10 @@
 ![Haskell Stack CI](https://github.com/IlyaBizyaev/trash/workflows/Haskell%20Stack%20CI/badge.svg)
 
 This repository contains a small shell implementation that has some basic file management commands and a tiny VCS called Tracker.
-Inspired by crosh.
+It was developed for educational purposes during the [Functional Programming course](https://github.com/jagajaga/itmo-fp-2020) at ITMO University.
+Inspired by [crosh](https://chromium.googlesource.com/chromiumos/platform2/+/master/crosh/README.md).
+
+<img src="img/screenshot.png" width="700">
 
 ## Usage
 ### Running
