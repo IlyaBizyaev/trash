@@ -17,16 +17,16 @@ On exit, the resulting state is written back to the storage. Revision history an
 The name was inspired by [crosh](https://chromium.googlesource.com/chromiumos/platform2/+/master/crosh/README.md) and limited practical
 benefit of the program.
 
-## Usage
+## Usage 🚀
 ### Running
 ```bash
 $ stack run
 ```
 
 ### Commands
-**File management:** use `-h` in REPL for a list of supported FM commands.
+**📂 File management:** use `-h` in REPL for a list of supported FM commands.
 
-**Version control:** use `tracker -h` in REPL for a list of supported VCS commands.
+**⏳ Version control:** use `tracker -h` in REPL for a list of supported VCS commands.
 
 _Disclaimer_: due to limited testing, bugs are to be expected.
 
