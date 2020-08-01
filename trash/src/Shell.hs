@@ -99,7 +99,7 @@ printWelcomeText = do
 -- | Display command prompt (with PWD).
 printPrompt :: FilePath -> IO ()
 printPrompt pwd = do
-  putStr $ pwd ++ " > "
+  putStr $ pwd ++ " \ESC[32m>\ESC[0m "
   hFlush stdout
 
 -- | Update tracker path when PWD is changed.
