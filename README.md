@@ -22,8 +22,5 @@ $ stack run
 $ stack build
 ```
 
-### Testing
-Sadly, I couldn't manage to implement a test suite in time.
-
 ## Copyright
 2020 Ilya Bizyaev <me@ilyabiz.com>, GPL 3+
