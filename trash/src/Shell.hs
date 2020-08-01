@@ -20,10 +20,18 @@ import RealIO (readDirEntryFromFilesystem, writeDirEntryToFilesystem)
 import ShellData (CommandException (..), ShellCommand (..), ShellState (..), TrackerSubcommand (..))
 import Tracker (addCmd, checkoutCmd, forgetCmd, forgetRevCmd, initCmd, logCmd, mergeCmd)
 
+-- | Welcome text to be displayed on shell start.
+welcomeText :: String
+welcomeText = "\ESC[35m _____ ___  __    __  _  _ \n\
+\|_   _| _ \\/  \\ /' _/| || |\n\
+\  | | | v / /\\ |`._`.| >< |\n\
+\  |_| |_|_\\_||_||___/|_||_|\ESC[0m\n"
+
 -- | Run trash REPl session.
 runREPL :: IO ()
 runREPL = do
   realPwd <- SD.getCurrentDirectory
+  printWelcomeText
   let initialPwd = "/"
   printPrompt initialPwd
   initialDir <- readDirEntryFromFilesystem realPwd
@@ -81,6 +89,12 @@ execNextCommand (cmd : cmds) st = do
         execTrackerSubcommand (CheckoutCommand path rev) = checkoutCmd path rev
         execTrackerSubcommand (MergeCommand path rev1 rev2 strategy) =
           mergeCmd path rev1 rev2 strategy
+
+-- | Display welcome text.
+printWelcomeText :: IO ()
+printWelcomeText = do
+  putStrLn welcomeText
+  hFlush stdout
 
 -- | Display command prompt (with PWD).
 printPrompt :: FilePath -> IO ()
